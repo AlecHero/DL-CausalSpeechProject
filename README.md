@@ -2,14 +2,15 @@
 
 Todo:
 
-- [x] NeptuneLogger (https://app.neptune.ai/o/apros7/org/CausalSpeech/runs/table?viewId=standard-view)
-- [ ] Implemented ConvTasNet.py
-- [ ] Create custom dataloader for causal models
-- [ ] Create custom dataloader for non-causal models
+- [x] gNeptuneLogger (https://app.neptune.ai/o/apros7/org/CausalSpeech/runs/table?viewId=standard-view)
+- [x] Implemented ConvTasNet.py
+- [ ] Create custom torch dataloader for causal models
+- [ ] Create custom torch dataloader for non-causal models
 - [ ] Create loss/eval scripts
 - [ ] Create teacher training script
 - [ ] Train teacher
-- [ ] Create student teacher script
+- [ ] 
+- [ ] Create student training script
 - [ ] Train student
 - [ ] Evaluate student
 
