@@ -9,7 +9,7 @@ Todo:
 - [ ] Create loss/eval scripts
 - [ ] Create teacher training script
 - [ ] Train teacher
-- [ ] 
+- [ ] Make dataset with predictions from teacher (overfit?)
 - [ ] Create student training script
 - [ ] Train student
 - [ ] Evaluate student
