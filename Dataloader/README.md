@@ -5,8 +5,8 @@ A brief description of how to go from nothing to everything (data ready for mode
 
 ## Table of Contents
 - [Description](#Description)
-- [Download Raw Data](#Download Raw Data)
-- [Train, Test, Val Split](#Train, Test, Val Split)
+- [Download Raw Data](#Download_Raw_Data)
+- [Train, Test, Val Split](#Train_Test_Val_Split)
 - [Resample](#Resample)
 - [Dataloader](#Dataloader)
 
