@@ -58,6 +58,25 @@ class Accuracy():
     def __init__(self):
         super(Accuracy, self).__init__()
     
+    # R^2 / R squared
+    def r2(self, y_pred, y_true):
+        ssr = torch.sum((y_true - y_pred) ** 2)
+        sst = torch.sum((y_true - torch.mean(y_true)) ** 2)
+        return 1 - ssr / sst
+    
+    # MSE / mean squared error
+    def mse(self, y_pred, y_true):
+        return torch.mean((y_pred - y_true) ** 2)
+    
+    # RMSE / root mean square error 
+    def rmse(self, y_pred, y_true):
+        return torch.sqrt(self.mse(y_pred, y_true))
+
+    # MAE / mean absolute error
+    def mae(self, y_pred, y_true):
+        return torch.mean(torch.abs(y_pred - y_true))    
+    
+    
 if __name__ == "__main__":
     ests = torch.randn(4,320)
     egs = torch.randn(4,320)
