@@ -18,6 +18,7 @@ https://github.com/sp-uhh/ears_benchmark
 Run Resample.py with correct data paths. Do:
 ```bash
 python Resample.py --clean_data_dir /path/to/EARS --noise_data_dir /path/to/WHAM48kHz/high_res_wham/audio --output_dir /path/to/output/dir
+python Dataloader/Resample.py --clean_data_dir /dtu/blackhole/0b/187019/EARS --noise_data_dir /dtu/blackhole/0b/187019/WHAM48kHz/high_res_wham/audio --output_dir /dtu/blackhole/0b/187019
 ```
 
 ## Train, Test, Val Split

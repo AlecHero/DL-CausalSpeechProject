@@ -14,12 +14,12 @@ def resample_directory(input_dir, output_dir, target_sr=16000):
     has_subdirs = any(os.path.isdir(os.path.join(input_dir, entry)) for entry in os.listdir(input_dir))
 
     if has_subdirs:
-        for speaker_folder in os.listdir(input_dir):
+        for speaker_folder in tqdm(os.listdir(input_dir)):
             speaker_dir = os.path.join(input_dir, speaker_folder)
             if os.path.isdir(speaker_dir):
                 output_speaker_dir = os.path.join(output_dir, speaker_folder)
                 os.makedirs(output_speaker_dir, exist_ok=True)
-                for file_path in tqdm(glob(os.path.join(speaker_dir, "*.wav")), desc=f"Resampling {speaker_folder}"):
+                for file_path in glob(os.path.join(speaker_dir, "*.wav")):
                     resample_and_save(file_path, output_speaker_dir, target_sr)
     else:
         for file_path in tqdm(glob(os.path.join(input_dir, "*.wav")), desc="Resampling noise data"):
