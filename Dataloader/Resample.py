@@ -39,14 +39,12 @@ def main():
     parser = argparse.ArgumentParser(description="Resample audio files in specified directories.")
     parser.add_argument("--clean_data_dir", type=str, required=True, help="Path to the clean data directory.")
     parser.add_argument("--noise_data_dir", type=str, required=True, help="Path to the noise data directory.")
+    parser.add_argument("--output_dir", type=str, required=True, help="Path to the output data directory.")
     args = parser.parse_args()
 
-    # Define output directories based on the current directory
-    base_output_dir = os.path.join(os.getcwd(), "Ears_data_resampled")
-    resampled_clean_data_dir = os.path.join(base_output_dir, "EARS")
-    resampled_noise_data_dir = os.path.join(base_output_dir, "WHAM48kHz/high_res_wham/audio")
+    resampled_clean_data_dir = os.path.join(args.output_dir, "EARS")
+    resampled_noise_data_dir = os.path.join(args.output_dir, "WHAM48kHz/high_res_wham/audio")
 
-    # Resample the clean and noise data
     resample_directory(args.clean_data_dir, resampled_clean_data_dir, target_sr=16000)
     resample_directory(args.noise_data_dir, resampled_noise_data_dir, target_sr=16000)
 
