@@ -3,7 +3,8 @@ import torch.nn as nn
 from torch import Tensor
 import torch.nn.functional as F
 from typing import Tuple
-
+from ConvTasNetUtils import spectral_normal_
+import numpy as np
 
 class Encoder(nn.Module):
     def __init__(self, num_filters, kernel_size, stride):
@@ -15,7 +16,8 @@ class Encoder(nn.Module):
         """
         super(Encoder, self).__init__()
         self.conv1d = nn.Conv1d(in_channels=1, out_channels=num_filters,
-                                kernel_size=kernel_size, stride=stride)
+                                kernel_size=kernel_size, stride=stride, bias=False)
+        spectral_normal_(self.conv1d.weight, gain=np.sqrt(2))
 
     def forward(self, x: Tensor) -> Tensor: 
         # This function returns w = H(xU) as defined in the paper
@@ -59,7 +61,8 @@ class TCNBlock(nn.Module):
         super(TCNBlock, self).__init__()
 
         # 1D convolution, PReLu and Norm
-        self.conv1x1_in = nn.Conv1d(num_channels, residual_channels, kernel_size=1)
+        self.conv1x1_in = nn.Conv1d(num_channels, residual_channels, kernel_size=1, bias=False)
+        spectral_normal_(self.conv1x1_in.weight, gain=np.sqrt(2))
         self.norm1 = nn.BatchNorm1d(residual_channels)
         self.prelu1 = nn.PReLU()
         
@@ -70,17 +73,20 @@ class TCNBlock(nn.Module):
         #     padding=padding, dilation=dilation)
         self.dilated_conv = nn.Conv1d(
             residual_channels, residual_channels, kernel_size,
-            padding='same', dilation=dilation)
+            padding='same', dilation=dilation, bias=False)
+        spectral_normal_(self.dilated_conv.weight, gain=np.sqrt(2))
         self.norm2 = nn.BatchNorm1d(residual_channels)
         self.prelu2 = nn.PReLU()
 
         # keeping the shape and channel dimensions intact, so we can add the origional input in forward()
-        self.res_conv = nn.Conv1d(residual_channels, residual_channels, kernel_size=1)
+        self.res_conv = nn.Conv1d(residual_channels, residual_channels, kernel_size=1, bias=False)
+        spectral_normal_(self.res_conv.weight, gain=np.sqrt(2))
 
         # computes skip features. 
         # This is done for each TCN block, so features from each block 
         # can contribute to the final output
-        self.skip_conv = nn.Conv1d(residual_channels, skip_channels, kernel_size=1)
+        self.skip_conv = nn.Conv1d(residual_channels, skip_channels, kernel_size=1, bias=False)
+        spectral_normal_(self.skip_conv.weight, gain=np.sqrt(2))
     
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor]: # Figure C in the paper
         out = self.conv1x1_in(x)
@@ -141,11 +147,13 @@ class ConvTasNet(nn.Module): # final model
         # Either force num_filters and num_channels to be the same number
         # or make another layer, that brings to correct shape
         # Dont know if this causes any preformance drop?
-        self.bottleneck = nn.Conv1d(num_filters, num_channels, kernel_size=1)
+        self.bottleneck = nn.Conv1d(num_filters, num_channels, kernel_size=1, bias=False)
+        spectral_normal_(self.bottleneck.weight, gain=np.sqrt(2))
 
         self.tcn = TCN(num_channels, num_blocks, kernel_size, skip_channels, residual_channels)
         self.decoder = Decoder(num_filters, kernel_size, stride)
-        self.mask_conv = nn.Conv1d(skip_channels, num_speakers * num_filters, kernel_size=1)
+        self.mask_conv = nn.Conv1d(skip_channels, num_speakers * num_filters, kernel_size=1, bias=False)
+        spectral_normal_(self.mask_conv.weight, gain=np.sqrt(2))
         self.num_speakers = num_speakers
         self.num_filters = num_filters
 
@@ -187,10 +195,12 @@ if __name__ == "__main__":
 
     # Dummy input tensor for testing
     batch_size = 4
-    input_length = 32000
+    input_length = 16000
     x = torch.randn(batch_size, 1, input_length)
 
     output = model(x)
     print(f"Output shape: {output.shape}")  # Should be [batch_size, num_speakers, output_length]
+    print(output[0][0][:10])
+    print(output[0][1][:10])
 
 
