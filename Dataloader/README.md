@@ -21,8 +21,9 @@ python Resample.py --clean_data_dir /path/to/EARS --noise_data_dir /path/to/WHAM
 ```
 
 ## Train, Test, Val Split
-Run the generate_ears_wham.py script, to generate EARS-WHAM dataset
-This will also split the data in Train, Test, Val
+Run the generate_ears_wham.py script, to generate EARS-WHAM dataset.
+Use --output_dir as data_dir here, if you want to use the resampled data.
+This will also split the data in Train, Test, Val.
 ```bash
 python generate_ears_wham.py --data_dir <data_dir> --copy_clean
 ```
