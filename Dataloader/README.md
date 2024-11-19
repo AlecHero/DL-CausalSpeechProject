@@ -29,8 +29,9 @@ Run the generate_ears_wham.py script, to generate EARS-WHAM dataset.
 data_dir should be a --output_dir from resample.py
 This will also split the data in Train, Test, Val.
 ```bash
-python generate_ears_wham.py --data_dir <data_dir> --copy_clean
+python generate_ears_wham.py --data_dir <data_dir> --copy_clean --sr 16000
 ```
+If you get an AssertionError: sr == args.sr, then you are pointing at the old dataset, not the resampled one. Make sure --data_dir points to the resampled dataset
 
 
 ## Dataloader
