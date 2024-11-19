@@ -18,12 +18,15 @@ https://github.com/sp-uhh/ears_benchmark
 Run Resample.py with correct data paths. Do:
 ```bash
 python Resample.py --clean_data_dir /path/to/EARS --noise_data_dir /path/to/WHAM48kHz/high_res_wham/audio --output_dir /path/to/output/dir
-python Dataloader/Resample.py --clean_data_dir /dtu/blackhole/0b/187019/EARS --noise_data_dir /dtu/blackhole/0b/187019/WHAM48kHz/high_res_wham/audio --output_dir /dtu/blackhole/0b/187019
+
+# example
+mkdir /dtu/blackhole/0b/187019/resampled_data
+python Dataloader/Resample.py --clean_data_dir /dtu/blackhole/0b/187019/EARS --noise_data_dir /dtu/blackhole/0b/187019/WHAM48kHz/high_res_wham/audio --output_dir /dtu/blackhole/0b/187019/resampled_data
 ```
 
 ## Train, Test, Val Split
 Run the generate_ears_wham.py script, to generate EARS-WHAM dataset.
-Use --output_dir as data_dir here, if you want to use the resampled data.
+data_dir should be a --output_dir from resample.py
 This will also split the data in Train, Test, Val.
 ```bash
 python generate_ears_wham.py --data_dir <data_dir> --copy_clean
