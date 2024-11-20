@@ -27,29 +27,22 @@ alpha = 0.5
 
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
-# Training loop
 for i in tqdm(range(20)):
     optimizer.zero_grad()
 
-    # Teacher predictions (softmaxed)
     with torch.no_grad():
         soft_target = nn.functional.softmax(teacher(inputs), dim=1)
 
-    # One-hot encode hard labels
     hard_target = torch.zeros_like(soft_target)
     hard_target.scatter_(1, labels, 1)
 
-    # Combine soft and hard targets
     target = alpha * soft_target + (1 - alpha) * hard_target
 
-    # Model predictions (log-softmaxed)
     outputs = model(inputs)
     logprobs = nn.functional.log_softmax(outputs, dim=1)
 
-    # KL divergence loss
     loss = nn.functional.kl_div(logprobs, target, reduction='batchmean')
 
-    # Backpropagation
     print(f"Iteration {i}: Loss = {loss.item()}")
     loss.backward()
     optimizer.step()
