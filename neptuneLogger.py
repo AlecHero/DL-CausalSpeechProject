@@ -23,6 +23,9 @@ class NeptuneLogger():
         # if metric_name not in self.run: self.run[metric_name] = []
         self.run[metric_name].append(metric_value)
 
+    def log_custom_soundfile(self, file_path, file_name):
+        self.run[file_name].upload(file_path)
+
     def log_teacher_train_soundfile(self, file_path, speaker, idx):
         self.run[f"train/teacher_predictions_speaker{speaker}_index{idx}.wav"].upload(file_path)
 

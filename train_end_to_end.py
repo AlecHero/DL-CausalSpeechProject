@@ -69,12 +69,12 @@ print("Models created")
 
 alpha = 0.5
 lr = 1e-3
-epochs = 1000
+epochs = 2000
 
 logger = NeptuneLogger()
 # optimizer = torch.optim.Adam(model.parameters())
 teacher_optim = torch.optim.Adam(teacher.parameters())
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(teacher_optim, mode='min', factor = 0.5, patience = 10)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(teacher_optim, mode='min', factor = 0.5, patience = 50)
 
 print("Logger started")
 
@@ -84,7 +84,7 @@ logger.log_metadata({
     "scheduler": "Reduce on Plateau",
     "epoch": epochs,
     "batch_size": batch_size,
-    "desc": ""
+    "desc": "Only clean soundfile loss calc, only teacher training, ReduceLROnPlateau with patience=50"
 })
 
 loss_func = Loss()
@@ -114,7 +114,7 @@ for i in tqdm(range(epochs), desc="Training..."):
         current_lr = param_group['lr']
     logger.log_metric("lr", current_lr)
 
-    if i % 50 == 0:
+    if i % 200 == 0:
 
         # save_to_wav(teacher_output[0:1, 0:1, :].detach().numpy(), output_filename="train_sound_1.wav")
         # save_to_wav(teacher_output[0:1, 1:2, :].detach().numpy(), output_filename="train_sound_2.wav")
@@ -122,11 +122,13 @@ for i in tqdm(range(epochs), desc="Training..."):
         # logger.log_train_soundfile("train_sound_1.wav", speaker=1, idx=i)
         # logger.log_train_soundfile("train_sound_2.wav", speaker=2, idx=i)
 
-        save_to_wav(teacher_output[0:1, 0:1, :].detach().numpy(), output_filename="train_sound_3.wav")
-        save_to_wav(teacher_output[0:1, 1:2, :].detach().numpy(), output_filename="train_sound_4.wav")
+        save_to_wav(teacher_output[0:1, 0:1, :].detach().numpy(), output_filename="teacher_train_clean.wav")
+        save_to_wav(teacher_output[0:1, 1:2, :].detach().numpy(), output_filename="teacher_train_noicy.wav")
+        save_to_wav(teacher_output[0:1, 1:2, :].detach().numpy(), output_filename="train_true_label.wav")
 
-        logger.log_teacher_train_soundfile("train_sound_3.wav", speaker=1, idx=i)
-        logger.log_teacher_train_soundfile("train_sound_4.wav", speaker=2, idx=i)
+        logger.log_teacher_train_soundfile("teacher_train_clean.wav", speaker=1, idx=i)
+        logger.log_teacher_train_soundfile("teacher_train_noicy.wav", speaker=2, idx=i)
+        logger.log_custom_soundfile("teacher_train_noicy.wav", "train/true_label.wav")
 
 # save models to neptune please
 # torch.save(model.state_dict(), PATH)
