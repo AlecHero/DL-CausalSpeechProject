@@ -22,6 +22,12 @@ class NeptuneLogger():
     def log_metric(self, metric_name, metric_value):
         self.run[metric_name] = metric_value
 
+    def log_train_soundfile(self, file_path):
+        self.run["train/predictions"].upload(file_path)
+
+    def log_val_soundfile(self, file_path):
+        self.run["train/predictions"].upload(file_path)
+
     def stop(self):
         self.run.stop()
 
