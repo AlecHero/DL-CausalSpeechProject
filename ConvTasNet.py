@@ -200,7 +200,6 @@ if __name__ == "__main__":
 
     output = model(x)
     print(f"Output shape: {output.shape}")  # Should be [batch_size, num_speakers, output_length]
-    print(output[0][0][:10])
-    print(output[0][1][:10])
+
 
 
