@@ -5,6 +5,8 @@ import numpy as np
 import torchaudio
 from ConvTasNet import ConvTasNet
 from tqdm import tqdm
+from eval import Loss
+from neptuneLogger import NeptuneLogger
 
 ## CONSTANTS
 num_speakers = 2
@@ -16,34 +18,52 @@ num_blocks = 8
 skip_channels = 128
 residual_channels = 512  
 batch_size = 4
-sr = 16000
+sr = 4000
 
-inputs, labels = torch.randn(batch_size, 1, sr), torch.randint(0, 2, (batch_size, 1, sr - 3))
-model = ConvTasNet(num_speakers=num_speakers, num_filters=num_filters, kernel_size=kernel_size, stride=stride,
-                   num_channels=num_channels, num_blocks=num_blocks, skip_channels=skip_channels, residual_channels=residual_channels)
-teacher = ConvTasNet(num_speakers=num_speakers, num_filters=num_filters, kernel_size=kernel_size, stride=stride,
-                     num_channels=num_channels, num_blocks=num_blocks, skip_channels=skip_channels, residual_channels=residual_channels)
+inputs, labels = torch.randn(batch_size, 1, sr), torch.randint(0, 2, (batch_size, 2, sr))
+model = torchaudio.models.conv_tasnet.ConvTasNet(
+        num_sources=2,
+        enc_kernel_size=3,  # Reduced from 20 to avoid size mismatch
+        enc_num_feats=512,
+        msk_kernel_size=3,  # Reduced from 20 to match encoder kernel size
+        msk_num_feats=512,
+        msk_num_hidden_feats=512,
+        msk_num_layers=2,
+        msk_num_stacks=8,
+        msk_activate="sigmoid"
+)
+teacher = torchaudio.models.conv_tasnet.ConvTasNet(
+        num_sources=2,
+        enc_kernel_size=3,  # Reduced from 20 to avoid size mismatch
+        enc_num_feats=256,
+        msk_kernel_size=3,  # Reduced from 20 to match encoder kernel size
+        msk_num_feats=256,
+        msk_num_hidden_feats=256,
+        msk_num_layers=2,
+        msk_num_stacks=4,
+        msk_activate="sigmoid"
+)
 alpha = 0.5
 
+logger = NeptuneLogger()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor = 0.5, patience = 10)
 
-for i in tqdm(range(20)):
+loss_func = Loss()
+
+scaler = torch.amp.GradScaler()
+
+for i in tqdm(range(100)):
     optimizer.zero_grad()
-
-    with torch.no_grad():
+    with torch.amp.autocast():
         soft_target = nn.functional.softmax(teacher(inputs), dim=1)
-
-    hard_target = torch.zeros_like(soft_target)
-    hard_target.scatter_(1, labels, 1)
-
-    target = alpha * soft_target + (1 - alpha) * hard_target
-
-    outputs = model(inputs)
-    logprobs = nn.functional.log_softmax(outputs, dim=1)
-
-    loss = nn.functional.kl_div(logprobs, target, reduction='batchmean')
-
+        target = alpha * soft_target + (1 - alpha) * labels
+        outputs = model(inputs)
+        loss = loss_func.compute_loss(outputs, target)
+    
     print(f"Iteration {i}: Loss = {loss.item()}")
-    loss.backward()
-    optimizer.step()
+    scaler.scale(loss).backward()
+    scaler.step(optimizer)
+    scaler.update()
+    scheduler.step(loss.item())
 
