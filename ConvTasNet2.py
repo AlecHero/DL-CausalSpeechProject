@@ -34,3 +34,5 @@ if __name__ == "__main__":
     
     print(f"Input shape: {fake_input.shape}")
     print(f"Output shape: {separated_sources.shape}")
+    separated_sources = None
+    print("Output2: ", model(torch.randn(4, 1, 48000)).shape)
