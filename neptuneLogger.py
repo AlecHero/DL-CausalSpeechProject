@@ -20,14 +20,23 @@ class NeptuneLogger():
     #     self.run["eval/f1_score"] = f1_score
 
     def log_metric(self, metric_name, metric_value):
-        self.run[metric_name] = metric_value
+        # if metric_name not in self.run: self.run[metric_name] = []
+        self.run[metric_name].append(metric_value)
 
-    def log_train_soundfile(self, file_path):
-        self.run["train/predictions"].upload(file_path)
+    def log_teacher_train_soundfile(self, file_path, speaker, idx):
+        self.run[f"train/teacher_predictions_speaker{speaker}_index{idx}.wav"].upload(file_path)
 
-    def log_val_soundfile(self, file_path):
-        self.run["train/predictions"].upload(file_path)
+    def log_train_soundfile(self, file_path, speaker, idx):
+        self.run[f"train/predictions_speaker{speaker}_index{idx}.wav"].upload(file_path)
+
+    def log_val_soundfile(self, file_path, speaker, idx):
+        self.run[f"val/predictions_speaker{speaker}_index{idx}.wav"].upload(file_path)
 
     def stop(self):
         self.run.stop()
 
+if __name__ == "__main__":
+    logger = NeptuneLogger()
+    logger.run["metric"].append(1.0)
+    logger.run["metric"].append(0.5)
+    logger.run.stop()

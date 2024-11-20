@@ -56,8 +56,8 @@ class EarsDataset(Dataset):
             clean_waveform = self._normalize_waveform(clean_waveform)
 
         # Pad or crop to fixed length
-        noisy_waveform = self._pad_or_crop(noisy_waveform, self.fixed_length)
-        clean_waveform = self._pad_or_crop(clean_waveform, self.fixed_length)
+        # noisy_waveform = self._pad_or_crop(noisy_waveform, self.fixed_length)
+        # clean_waveform = self._pad_or_crop(clean_waveform, self.fixed_length)
 
         return noisy_waveform, clean_waveform
 
@@ -78,10 +78,11 @@ class EarsDataset(Dataset):
         return waveform
 
 # Usage
-data_dir = "/Users/benyla/Desktop/Ears_data_resampled/EARS-WHAM"
-batch_size = 8
-train_dataset = EarsDataset(data_dir, subset="train", fixed_length="average")
-train_loader = ConvTasNetDataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+if __name__ == "__main__":
+    data_dir = "/Users/benyla/Desktop/Ears_data_resampled/EARS-WHAM"
+    batch_size = 8
+    train_dataset = EarsDataset(data_dir, subset="train", fixed_length="average")
+    train_loader = ConvTasNetDataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
 # for noisy, clean in train_loader:
 #     pass
