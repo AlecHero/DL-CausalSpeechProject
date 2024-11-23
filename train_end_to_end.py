@@ -27,7 +27,7 @@ overfit_idx = 1
 dataset_TRN = EarsDataset(data_dir="/dtu/blackhole/0b/187019/EARS-WHAM", subset = 'train', normalize = False, max_samples=100)
 # Limit to 100 samples
 train_loader = ConvTasNetDataLoader(dataset_TRN, batch_size=batch_size, shuffle=True)
-dataset_VAL = EarsDataset(data_dir="/dtu/blackhole/0b/187019/EARS-WHAM", subset = 'valid', normalize = False, max_samples=10)
+dataset_VAL = EarsDataset(data_dir="/dtu/blackhole/0b/187019/EARS-WHAM", subset = 'valid', normalize = False, max_samples=100)
 # Limit to 10 sample
 val_loader = ConvTasNetDataLoader(dataset_VAL, batch_size=batch_size, shuffle=True)
 
@@ -103,7 +103,7 @@ def eval(i: int):
     teacher.eval()
     losses = []
     with torch.no_grad():
-        for batch in tqdm(train_loader, desc="Evaluating..."):
+        for batch in tqdm(val_loader, desc="Evaluating..."):
             inputs, labels = batch
             inputs = inputs[:, :, :16000]
             labels = labels[:, :, :16000]
