@@ -8,7 +8,7 @@ from tqdm import tqdm
 from eval import Loss
 from neptuneLogger import NeptuneLogger
 from wav_generator import save_to_wav
-from Dataloader.Dataloader import EarsDataset
+from Dataloader.Dataloader import EarsDataset,ConvTasNetDataLoader
 
 ## CONSTANTS
 num_sources=2
@@ -20,38 +20,44 @@ msk_num_hidden_feats=256
 msk_num_layers=2
 msk_num_stacks=4
 msk_activate="sigmoid"
-batch_size = 4
+batch_size = 1
 sr = 2000
 
 overfit_idx = 1
-dataset = EarsDataset(data_dir="/dtu/blackhole/0b/187019/EARS-WHAM", subset = 'train', normalize = False)
-print("Dataset imported")
-inputs, labels = dataset.__getitem__(overfit_idx)
-inputs = inputs.unsqueeze(0)[:, :, :16000]
-labels = labels.unsqueeze(0)[:, :, :16000]
+dataset_TRN = EarsDataset(data_dir="/dtu/blackhole/0b/187019/EARS-WHAM", subset = 'train', normalize = False, max_samples=100)
+# Limit to 100 samples
+train_loader = ConvTasNetDataLoader(dataset_TRN, batch_size=batch_size, shuffle=True)
+dataset_VAL = EarsDataset(data_dir="/dtu/blackhole/0b/187019/EARS-WHAM", subset = 'valid', normalize = False, max_samples=10)
+# Limit to 10 sample
+val_loader = ConvTasNetDataLoader(dataset_VAL, batch_size=batch_size, shuffle=True)
+
+print("Dataloader imported")
+# inputs, labels = next(train_iter)
+# inputs = inputs.unsqueeze(0)[:, :, :16000]
+# labels = labels.unsqueeze(0)[:, :, :16000]
 
 # save_to_wav(inputs[:, :, :].detach().numpy(), output_filename="test_inputs.wav")
 # save_to_wav(labels[:, :, :].detach().numpy(), output_filename="test_labels.wav")
 # print(inputs.unsqueeze(0).shape)
 # print(labels.unsqueeze(0).shape)
 # raise ValueError()
-print("Getitem worked")
+# print("Getitem worked")
 # inputs, labels = torch.randn(batch_size, 1, sr), torch.randint(0, 2, (batch_size, 2, sr))
 
 # inputs = ...
 # labels = ...
 
-# model = torchaudio.models.conv_tasnet.ConvTasNet(
-#         num_sources=2,
-#         enc_kernel_size=3,  # Reduced from 20 to avoid size mismatch
-#         enc_num_feats=512,
-#         msk_kernel_size=3,  # Reduced from 20 to match encoder kernel size
-#         msk_num_feats=512,
-#         msk_num_hidden_feats=512,
-#         msk_num_layers=2,
-#         msk_num_stacks=8,
-#         msk_activate="sigmoid"
-# )
+student = torchaudio.models.conv_tasnet.ConvTasNet(
+        num_sources=num_sources,
+        enc_kernel_size=enc_kernel_size,  # Reduced from 20 to avoid size mismatch
+        enc_num_feats=enc_num_feats,
+        msk_kernel_size=msk_kernel_size,  # Reduced from 20 to match encoder kernel size
+        msk_num_feats=msk_num_feats,
+        msk_num_hidden_feats=msk_num_hidden_feats,
+        msk_num_layers=msk_num_layers,
+        msk_num_stacks=msk_num_stacks,
+        msk_activate=msk_activate
+)
 
 teacher = torchaudio.models.conv_tasnet.ConvTasNet(
         num_sources=num_sources,
@@ -69,12 +75,12 @@ print("Models created")
 
 alpha = 0.5
 lr = 1e-3
-epochs = 2000
+epochs = 100
 
 logger = NeptuneLogger()
-# optimizer = torch.optim.Adam(model.parameters())
-teacher_optim = torch.optim.Adam(teacher.parameters())
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(teacher_optim, mode='min', factor = 0.5, patience = 50)
+student_optimizer = torch.optim.Adam(student.parameters())
+teacher_optimizer = torch.optim.Adam(teacher.parameters())
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(teacher_optimizer, mode='min', factor = 0.5, patience = 50)
 
 print("Logger started")
 
@@ -89,32 +95,71 @@ logger.log_metadata({
 
 loss_func = Loss()
 
-# scaler = torch.amp.GradScaler()
-
 # Missing causal teacher and non-causal student
-# Loss is fucked
 
-for i in tqdm(range(epochs), desc="Training..."):
-    teacher_optim.zero_grad()
-    # with torch.amp.autocast("mps"):
-    teacher_output = teacher(inputs)
-    clean_sound_teacher_output = teacher_output[:, 0:1, :]
-    # target = alpha * soft_target + (1 - alpha) * labels
-    # outputs = model(inputs)
-    loss = loss_func.compute_loss(clean_sound_teacher_output, labels)
-    
-    # print(f"Iteration {i}: Loss = {loss.item()}")
-    loss.backward()
-    teacher_optim.step()
-    # optimizer.step()
-    scheduler.step(loss.item())
+def eval(i: int):
+    # student is compared to calc target. Is this correct?
+    student.eval()
+    teacher.eval()
+    losses = []
+    with torch.no_grad():
+        for batch in tqdm(train_loader, desc="Evaluating..."):
+            inputs, labels = batch
+            inputs = inputs[:, :, :16000]
+            labels = labels[:, :, :16000]
 
-    logger.log_metric("train_loss", loss.item())
-    for param_group in teacher_optim.param_groups:
-        current_lr = param_group['lr']
-    logger.log_metric("lr", current_lr)
+            clean_sound_teacher_output = teacher(inputs)[:, 0:1, :]
+            target = alpha * clean_sound_teacher_output + (1 - alpha) * labels
+            clean_sound_student_output = student(inputs)[:, 0:1, :]
+            loss = loss_func.compute_loss(clean_sound_student_output, target)
+            losses.append(loss)
 
-    if i % 200 == 0:
+        save_to_wav(clean_sound_teacher_output[0:1, 0:1, :].detach().numpy(), output_filename="teacher_val_clean.wav")
+        save_to_wav(clean_sound_student_output[0:1, 0:1, :].detach().numpy(), output_filename="student_val_clean.wav")
+        save_to_wav(labels[0:1, 0:1, :].detach().numpy(), output_filename="train_true_label.wav")
+
+        logger.log_custom_soundfile("teacher_val_clean.wav", f"val/teacher_clean_index{i}.wav")
+        logger.log_custom_soundfile("student_val_clean.wav", f"val/student_clean_index{i}.wav")
+        logger.log_custom_soundfile("train_val_label.wav", "val/true_label.wav")
+
+    student.train()
+    teacher.train()
+
+    logger.log_metric("val_loss", sum(losses)/len(losses))
+    return sum(losses)/len(losses)
+
+for i in range(epochs):
+    for batch in tqdm(train_loader, desc=f"Epoch {i} out of {epochs}"):
+        batched_inputs, batched_labels = batch
+        inputs = batched_inputs[:, :, :16000]
+        labels = batched_labels[:, :, :16000]
+
+        student_optimizer.zero_grad()
+        teacher_optimizer.zero_grad()
+
+        clean_sound_teacher_output = teacher(inputs)[:, 0:1, :]
+        target = alpha * clean_sound_teacher_output + (1 - alpha) * labels
+        clean_sound_student_output = student(inputs)[:, 0:1, :]
+        loss = loss_func.compute_loss(clean_sound_student_output, target)
+        
+        # print(f"Iteration {i}: Loss = {loss.item()}")
+        loss.backward()
+        student_optimizer.step()
+        teacher_optimizer.step()
+        scheduler.step(loss.item())
+
+        for student_param_group, teacher_param_group in zip(student_optimizer.param_groups, teacher_optimizer.param_groups):
+            student_param_group['lr'] = teacher_param_group['lr']
+
+        logger.log_metric("train_loss", loss.item())
+        for param_group in teacher_optimizer.param_groups:
+            current_lr = param_group['lr']
+        logger.log_metric("lr_teacher", current_lr)
+        for param_group in student_optimizer.param_groups:
+            current_lr = param_group['lr']
+        logger.log_metric("lr_student", current_lr)
+
+    if i % 1 == 0:
 
         # save_to_wav(teacher_output[0:1, 0:1, :].detach().numpy(), output_filename="train_sound_1.wav")
         # save_to_wav(teacher_output[0:1, 1:2, :].detach().numpy(), output_filename="train_sound_2.wav")
@@ -122,16 +167,21 @@ for i in tqdm(range(epochs), desc="Training..."):
         # logger.log_train_soundfile("train_sound_1.wav", speaker=1, idx=i)
         # logger.log_train_soundfile("train_sound_2.wav", speaker=2, idx=i)
 
-        save_to_wav(teacher_output[0:1, 0:1, :].detach().numpy(), output_filename="teacher_train_clean.wav")
-        save_to_wav(teacher_output[0:1, 1:2, :].detach().numpy(), output_filename="teacher_train_noicy.wav")
-        save_to_wav(teacher_output[0:1, 1:2, :].detach().numpy(), output_filename="train_true_label.wav")
+        eval()
 
-        logger.log_teacher_train_soundfile("teacher_train_clean.wav", speaker=1, idx=i)
-        logger.log_teacher_train_soundfile("teacher_train_noicy.wav", speaker=2, idx=i)
-        logger.log_custom_soundfile("teacher_train_noicy.wav", "train/true_label.wav")
+        save_to_wav(clean_sound_teacher_output[0:1, 0:1, :].detach().numpy(), output_filename="teacher_train_clean.wav")
+        save_to_wav(clean_sound_student_output[0:1, 0:1, :].detach().numpy(), output_filename="student_train_clean.wav")
+        save_to_wav(labels[0:1, 0:1, :].detach().numpy(), output_filename="train_true_label.wav")
 
-# save models to neptune please
-# torch.save(model.state_dict(), PATH)
+        logger.log_custom_soundfile("teacher_train_clean.wav", f"train/teacher_clean_index{i}.wav")
+        logger.log_custom_soundfile("student_train_clean.wav", f"train/student_clean_index{i}.wav")
+        logger.log_custom_soundfile("train_true_label.wav", "train/true_label.wav")
+
+        torch.save(student.state_dict(), "student.pth")
+        torch.save(student.state_dict(), "teacher.pth")
+
+        logger.log_model("student.pth", "artifacts/student_latest.pth")
+        logger.log_model("teacher.pth", "artifacts/student_latest.pth")
 
 # model = TheModelClass(*args, **kwargs)
 # model.load_state_dict(torch.load(PATH, weights_only=True))

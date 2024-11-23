@@ -14,6 +14,13 @@ Todo:
 - [ ] Train student
 - [ ] Evaluate student
 
+Missing in training script:
+- [ ] Making it causal, non-causal
+- [ ] Train with batch_size > 1
+- [ ] Perform validation and log
+- [ ] Work with more than 1 second of audio
+
+
 Next:
 - [ ] Try end-to-end?
 - [ ] Try with discriminator model included?

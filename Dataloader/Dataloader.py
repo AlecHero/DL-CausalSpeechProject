@@ -10,7 +10,7 @@ class ConvTasNetDataLoader(DataLoader):
         super(ConvTasNetDataLoader, self).__init__(*args, **kwargs)
 
 class EarsDataset(Dataset):
-    def __init__(self, data_dir, subset="train", fixed_length="shortest", normalize=True, sample_rate=16000):
+    def __init__(self, data_dir, subset="train", fixed_length="shortest", normalize=True, sample_rate=16000, max_samples=None):
         self.noisy_dir = os.path.join(data_dir, subset, "noisy")
         self.clean_dir = os.path.join(data_dir, subset, "clean")
         
@@ -39,6 +39,16 @@ class EarsDataset(Dataset):
             self.fixed_length = fixed_length
         else:
             raise ValueError("fixed_length must be 'shortest', 'average', or an integer")
+        
+        self.max_samples = max_samples
+        if max_samples is not None: self.limit(max_samples)
+        
+    def limit(self, max_samples: int):
+        if max_samples > self.max_samples:
+            raise AssertionError(f"You have already cut the dataset to max samples: {self.max_samples}.")
+        self.max_samples = max_samples
+        self.noisy_files = self.noisy_files[:max_samples]
+        self.clean_files = self.clean_files[:max_samples]
 
     def __len__(self): # used in dataloader
         return len(self.noisy_files)
