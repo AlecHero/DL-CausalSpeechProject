@@ -146,7 +146,8 @@ for i in range(epochs):
         loss.backward()
         student_optimizer.step()
         teacher_optimizer.step()
-        scheduler.step(loss.item())
+        scheduler.step(loss.item()) # This is maybe bad as we check every batch in each epoch, ideally should check 
+        # each epoch instead
 
         for student_param_group, teacher_param_group in zip(student_optimizer.param_groups, teacher_optimizer.param_groups):
             student_param_group['lr'] = teacher_param_group['lr']
