@@ -75,12 +75,12 @@ print("Models created")
 
 alpha = 0.5
 lr = 1e-3
-epochs = 100
+epochs = 200
 
 logger = NeptuneLogger()
 student_optimizer = torch.optim.Adam(student.parameters())
 teacher_optimizer = torch.optim.Adam(teacher.parameters())
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(teacher_optimizer, mode='min', factor = 0.5, patience = 50)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(teacher_optimizer, mode='min', factor = 0.5, patience = 200)
 
 print("Logger started")
 
@@ -168,7 +168,7 @@ for i in range(epochs):
         # logger.log_train_soundfile("train_sound_1.wav", speaker=1, idx=i)
         # logger.log_train_soundfile("train_sound_2.wav", speaker=2, idx=i)
 
-        eval()
+        eval(i)
 
         save_to_wav(clean_sound_teacher_output[0:1, 0:1, :].detach().numpy(), output_filename="teacher_train_clean.wav")
         save_to_wav(clean_sound_student_output[0:1, 0:1, :].detach().numpy(), output_filename="student_train_clean.wav")
