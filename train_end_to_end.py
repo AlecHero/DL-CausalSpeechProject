@@ -141,10 +141,14 @@ for i in range(epochs):
         target = alpha * clean_sound_teacher_output + (1 - alpha) * labels
         clean_sound_student_output = student(inputs)[:, 0:1, :]
         loss = loss_func.compute_loss(clean_sound_student_output, target)
+
+        teacher_loss = loss_func.compute_loss(clean_sound_teacher_output, labels)
         
         # print(f"Iteration {i}: Loss = {loss.item()}")
         loss.backward()
         student_optimizer.step()
+
+        teacher_loss.backward()
         teacher_optimizer.step()
         scheduler.step(loss.item()) # This is maybe bad as we check every batch in each epoch, ideally should check 
         # each epoch instead
