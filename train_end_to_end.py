@@ -80,7 +80,7 @@ epochs = 200
 logger = NeptuneLogger()
 student_optimizer = torch.optim.Adam(student.parameters())
 teacher_optimizer = torch.optim.Adam(teacher.parameters())
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(teacher_optimizer, mode='min', factor = 0.5, patience = 200)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(teacher_optimizer, mode='min', factor = 0.5, patience = 600)
 
 print("Logger started")
 
