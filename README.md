@@ -17,8 +17,11 @@ Todo:
 Missing in training script:
 - [ ] Making it causal, non-causal
 - [ ] Train with batch_size > 1
-- [ ] Perform validation and log
+- [x] Perform validation and log
 - [ ] Work with more than 1 second of audio
+
+Notes:
+- It seems to be better to fully train teacher, then train student: Much more stabel flow for the student to follow. On this note, also address the best alpha, or if there should even be an alpha when the teacher is fully trained when starting student training.
 
 
 Next:
