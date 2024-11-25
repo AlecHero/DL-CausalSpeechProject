@@ -65,7 +65,8 @@ class Accuracy():
         return 1 - ssr / sst
     
     # MSE / mean squared error
-    def mse(self, y_pred, y_true):
+    @staticmethod  
+    def mse(y_pred, y_true):
         return torch.mean((y_pred - y_true) ** 2)
     
     # RMSE / root mean square error 
