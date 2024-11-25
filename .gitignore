@@ -229,3 +229,4 @@ pyrightconfig.json
 *.wav
 .neptune/
 *.pth
+logs/

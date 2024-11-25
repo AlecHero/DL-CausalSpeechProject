@@ -6,6 +6,7 @@ Todo:
 - [ ] Compile torch forward + backward (logger skal ud) (Lucas)
 - [ ] Træne teacher (Lucas)
 - [ ] Prep script for student train
+- [ ] Cleanup folder
 
 - [ ] How to best transfer learn from teacher to student
     - [ ] Make a loss for intermediate layer output values (bertram, alex)

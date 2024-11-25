@@ -120,20 +120,20 @@ def eval(i: int):
             labels = labels[:, :, :16000]
 
             clean_sound_teacher_output = teacher(inputs)[:, 0:1, :]
-            loss = loss_func.compute_loss(clean_sound_teacher_output, labels)
+            loss = loss_func.sisnr(clean_sound_teacher_output, labels)
             # target = alpha * clean_sound_teacher_output + (1 - alpha) * labels
             # clean_sound_student_output = student(inputs)[:, 0:1, :]
             # loss = loss_func.compute_loss(clean_sound_student_output, target)
             losses.append(loss)
             accuracies.append(Accuracy.mse(clean_sound_teacher_output, labels))
 
-        save_to_wav(clean_sound_teacher_output[0:1, 0:1, :].detach().numpy(), output_filename="teacher_val_clean.wav")
+        # save_to_wav(clean_sound_teacher_output[0:1, 0:1, :].detach().numpy(), output_filename="teacher_val_clean.wav")
         # save_to_wav(clean_sound_student_output[0:1, 0:1, :].detach().numpy(), output_filename="student_val_clean.wav")
-        save_to_wav(labels[0:1, 0:1, :].detach().numpy(), output_filename="val_true_label.wav")
+        # save_to_wav(labels[0:1, 0:1, :].detach().numpy(), output_filename="val_true_label.wav")
 
-        logger.log_custom_soundfile("teacher_val_clean.wav", f"val/teacher_clean_index{i}.wav")
+        # logger.log_custom_soundfile("teacher_val_clean.wav", f"val/teacher_clean_index{i}.wav")
         # logger.log_custom_soundfile("student_val_clean.wav", f"val/student_clean_index{i}.wav")
-        logger.log_custom_soundfile("val_true_label.wav", "val/true_label.wav")
+        # logger.log_custom_soundfile("val_true_label.wav", "val/true_label.wav")
 
     # student.train()
     teacher.train()
@@ -152,7 +152,7 @@ for i in range(epochs):
         teacher_optimizer.zero_grad()
 
         clean_sound_teacher_output = teacher(inputs)[:, 0:1, :]
-        loss = loss_func.compute_loss(clean_sound_teacher_output, labels)
+        loss = -loss_func.sisnr(clean_sound_teacher_output, labels)
         # target = alpha * clean_sound_teacher_output + (1 - alpha) * labels
         # clean_sound_student_output = student(inputs)[:, 0:1, :]
         # loss = loss_func.compute_loss(clean_sound_student_output, target)
@@ -188,13 +188,13 @@ for i in range(epochs):
 
         eval(i)
 
-        save_to_wav(clean_sound_teacher_output[0:1, 0:1, :].detach().numpy(), output_filename="teacher_train_clean.wav")
+        # save_to_wav(clean_sound_teacher_output[0:1, 0:1, :].detach().numpy(), output_filename="teacher_train_clean.wav")
         # save_to_wav(clean_sound_student_output[0:1, 0:1, :].detach().numpy(), output_filename="student_train_clean.wav")
-        save_to_wav(labels[0:1, 0:1, :].detach().numpy(), output_filename="train_true_label.wav")
+        # save_to_wav(labels[0:1, 0:1, :].detach().numpy(), output_filename="train_true_label.wav")
 
-        logger.log_custom_soundfile("teacher_train_clean.wav", f"train/teacher_clean_index{i}.wav")
+        # logger.log_custom_soundfile("teacher_train_clean.wav", f"train/teacher_clean_index{i}.wav")
         # logger.log_custom_soundfile("student_train_clean.wav", f"train/student_clean_index{i}.wav")
-        logger.log_custom_soundfile("train_true_label.wav", "train/true_label.wav")
+        # logger.log_custom_soundfile("train_true_label.wav", "train/true_label.wav")
 
         # torch.save(student.state_dict(), "student.pth")
         torch.save(teacher.state_dict(), "teacher.pth")
