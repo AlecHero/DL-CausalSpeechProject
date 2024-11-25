@@ -23,7 +23,7 @@ msk_num_stacks=4
 msk_activate="sigmoid"
 batch_size = 1
 sr = 2000
-_LOCAL = false
+_LOCAL = False
 
 overfit_idx = 1
 dataset_TRN = EarsDataset(data_dir="/dtu/blackhole/0b/187019/EARS-WHAM", subset = 'train', normalize = False, max_samples=100)
