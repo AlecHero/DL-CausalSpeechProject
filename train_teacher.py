@@ -33,8 +33,10 @@ j = 0
 # If laze then should save outputs! in memory??
 # ALso check if .compile is actually faster...
 dataset_TRN = EarsDataset(data_dir="/dtu/blackhole/0b/187019/EARS-WHAM", subset = 'train', normalize = False)
+print(len(dataset_TRN))
 train_loader = ConvTasNetDataLoader(dataset_TRN, batch_size=batch_size, shuffle=True)
 dataset_VAL = EarsDataset(data_dir="/dtu/blackhole/0b/187019/EARS-WHAM", subset = 'valid', normalize = False)
+print(len(dataset_VAL))
 val_loader = ConvTasNetDataLoader(dataset_VAL, batch_size=batch_size, shuffle=True)
 
 print("Dataloader imported")
@@ -76,7 +78,8 @@ epochs = 200
 
 logger = NeptuneLogger()
 teacher_optimizer = torch.optim.Adam(teacher.parameters())
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(teacher_optimizer, mode='min', factor = 0.5, patience = 70)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(teacher_optimizer, mode='min', factor = 0.5, patience = 32)
+# Patience = 1 epoch
 
 print("Logger started")
 
@@ -95,7 +98,6 @@ loss_func = Loss()
 def eval():
     teacher.eval()
     losses = []
-    accuracies = []
     with torch.no_grad():
         for batch in val_loader:
             inputs, labels = batch
