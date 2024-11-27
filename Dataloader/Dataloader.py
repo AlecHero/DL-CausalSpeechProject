@@ -32,7 +32,7 @@ class EarsDataset(Dataset):
         # 'average' using both crop and padding to fix the length to averge of all data. padding will add 0's if data to short
         # we can also use 'int' to fix the length at any integer
         if fixed_length == "shortest":
-            self.fixed_length = min(self.length_distribution)
+            self.fixed_length = min(self.length_distribution) if len(self.length_distribution) > 0 else 16000
         elif fixed_length == "average":
             self.fixed_length = int(np.mean(self.length_distribution))
         elif isinstance(fixed_length, int):
@@ -40,8 +40,8 @@ class EarsDataset(Dataset):
         else:
             raise ValueError("fixed_length must be 'shortest', 'average', or an integer")
         
-        self.max_samples = max_samples
-        if max_samples is not None: self.limit(max_samples)
+        self.max_samples = max_samples if max_samples is not None else len(self.noisy_files)
+        self.limit(self.max_samples)
         
     def limit(self, max_samples: int):
         if max_samples > self.max_samples:
