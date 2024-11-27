@@ -11,22 +11,23 @@ from wav_generator import save_to_wav
 from Dataloader.Dataloader import EarsDataset,ConvTasNetDataLoader
 import pickle
 import time
+from train_teacher_convtasnet import ConvTasNet
 
 print("Torch is available: ", torch.cuda.is_available())
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 ## CONSTANTS
-num_sources=2
-enc_kernel_size=3  # Reduced from 20 to avoid size mismatch
-enc_num_feats=256
-msk_kernel_size=3  # Reduced from 20 to match encoder kernel size
-msk_num_feats=256
-msk_num_hidden_feats=256
-msk_num_layers=2
-msk_num_stacks=4
-msk_activate="sigmoid"
+num_sources = 2
+enc_kernel_size = 16
+enc_num_feats = 512
+msk_kernel_size = 3
+msk_num_feats = 128
+msk_num_hidden_feats = 512
+msk_num_layers = 8
+msk_num_stacks = 3
+msk_activate = 'sigmoid'
 batch_size = 1
-sr = 2000
+# sr = 2000
 j = 0
 
 # All of this should be preloaded in, not lazy. Laziness is time consuming here.
@@ -41,7 +42,21 @@ val_loader = ConvTasNetDataLoader(dataset_VAL, batch_size=batch_size, shuffle=Tr
 
 print("Dataloader imported")
 
-# teacher = torchaudio.models.conv_tasnet.ConvTasNet(
+# teacher = ConvTasNet()
+
+teacher = torchaudio.models.conv_tasnet.ConvTasNet(
+        num_sources=num_sources,
+        enc_kernel_size=enc_kernel_size,  
+        enc_num_feats=enc_num_feats,
+        msk_kernel_size=msk_kernel_size,
+        msk_num_feats=msk_num_feats,
+        msk_num_hidden_feats=msk_num_hidden_feats,
+        msk_num_layers=msk_num_layers,
+        msk_num_stacks=msk_num_stacks,
+        msk_activate=msk_activate
+)
+
+# teacher = torch.compile(torchaudio.models.conv_tasnet.ConvTasNet(
 #         num_sources=num_sources,
 #         enc_kernel_size=enc_kernel_size,  # Reduced from 20 to avoid size mismatch
 #         enc_num_feats=enc_num_feats,
@@ -51,19 +66,7 @@ print("Dataloader imported")
 #         msk_num_layers=msk_num_layers,
 #         msk_num_stacks=msk_num_stacks,
 #         msk_activate=msk_activate
-# )
-
-teacher = torch.compile(torchaudio.models.conv_tasnet.ConvTasNet(
-        num_sources=num_sources,
-        enc_kernel_size=enc_kernel_size,  # Reduced from 20 to avoid size mismatch
-        enc_num_feats=enc_num_feats,
-        msk_kernel_size=msk_kernel_size,  # Reduced from 20 to match encoder kernel size
-        msk_num_feats=msk_num_feats,
-        msk_num_hidden_feats=msk_num_hidden_feats,
-        msk_num_layers=msk_num_layers,
-        msk_num_stacks=msk_num_stacks,
-        msk_activate=msk_activate
-))
+# ))
 
 teacher = teacher.to(device)
 
@@ -78,7 +81,7 @@ epochs = 200
 
 logger = NeptuneLogger()
 teacher_optimizer = torch.optim.Adam(teacher.parameters())
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(teacher_optimizer, mode='min', factor = 0.5, patience = 32)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(teacher_optimizer, mode='min', factor = 0.5, patience = 3)
 # Patience = 1 epoch
 
 print("Logger started")
@@ -89,12 +92,12 @@ logger.log_metadata({
     "scheduler": "Reduce on Plateau",
     "epoch": epochs,
     "batch_size": batch_size,
-    "desc": "Only clean soundfile loss calc, only teacher training, ReduceLROnPlateau with patience=50"
+    "desc": "Only clean soundfile loss calc, only teacher training, ReduceLROnPlateau with val loss 3 epochs, without compile"
 })
 
 loss_func = Loss()
 
-@torch.compile
+# @torch.compile
 def eval():
     teacher.eval()
     losses = []
@@ -110,7 +113,7 @@ def eval():
             losses.append(loss)
     return sum(losses)/len(losses)
 
-@torch.compile
+# @torch.compile
 def forward_and_back(inputs, labels):
     teacher.train()
     teacher_optimizer.zero_grad() 
@@ -137,7 +140,6 @@ for i in range(epochs):
             avg_loss = sum(losses)/len(losses)
             losses = []
             logger.log_metric("train_loss", avg_loss, step=j)
-            scheduler.step(avg_loss)
             for param_group in teacher_optimizer.param_groups:
                 current_lr = param_group['lr']
             logger.log_metric("lr_teacher", current_lr, step=j)
@@ -149,6 +151,7 @@ for i in range(epochs):
     logger.log_custom_soundfile("train_true_label.wav", "train/true_label.wav")
 
     val_loss = eval()
+    scheduler.step(val_loss)
     logger.log_metric("val_loss", val_loss)
     torch.save(teacher.state_dict(), "teacher.pth")
     logger.log_model("teacher.pth", "artifacts/teacher_latest.pth")
