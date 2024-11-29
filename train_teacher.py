@@ -44,29 +44,29 @@ print("Dataloader imported")
 
 # teacher = ConvTasNet()
 
-teacher = torchaudio.models.conv_tasnet.ConvTasNet(
-        num_sources=num_sources,
-        enc_kernel_size=enc_kernel_size,  
-        enc_num_feats=enc_num_feats,
-        msk_kernel_size=msk_kernel_size,
-        msk_num_feats=msk_num_feats,
-        msk_num_hidden_feats=msk_num_hidden_feats,
-        msk_num_layers=msk_num_layers,
-        msk_num_stacks=msk_num_stacks,
-        msk_activate=msk_activate
-)
-
-# teacher = torch.compile(torchaudio.models.conv_tasnet.ConvTasNet(
+# teacher = torchaudio.models.conv_tasnet.ConvTasNet(
 #         num_sources=num_sources,
-#         enc_kernel_size=enc_kernel_size,  # Reduced from 20 to avoid size mismatch
+#         enc_kernel_size=enc_kernel_size,  
 #         enc_num_feats=enc_num_feats,
-#         msk_kernel_size=msk_kernel_size,  # Reduced from 20 to match encoder kernel size
+#         msk_kernel_size=msk_kernel_size,
 #         msk_num_feats=msk_num_feats,
 #         msk_num_hidden_feats=msk_num_hidden_feats,
 #         msk_num_layers=msk_num_layers,
 #         msk_num_stacks=msk_num_stacks,
 #         msk_activate=msk_activate
-# ))
+# )
+
+teacher = torch.compile(torchaudio.models.conv_tasnet.ConvTasNet(
+        num_sources=num_sources,
+        enc_kernel_size=enc_kernel_size,  # Reduced from 20 to avoid size mismatch
+        enc_num_feats=enc_num_feats,
+        msk_kernel_size=msk_kernel_size,  # Reduced from 20 to match encoder kernel size
+        msk_num_feats=msk_num_feats,
+        msk_num_hidden_feats=msk_num_hidden_feats,
+        msk_num_layers=msk_num_layers,
+        msk_num_stacks=msk_num_stacks,
+        msk_activate=msk_activate
+))
 
 teacher = teacher.to(device)
 
@@ -97,7 +97,7 @@ logger.log_metadata({
 
 loss_func = Loss()
 
-# @torch.compile
+@torch.compile
 def eval():
     teacher.eval()
     losses = []
@@ -113,7 +113,7 @@ def eval():
             losses.append(loss)
     return sum(losses)/len(losses)
 
-# @torch.compile
+@torch.compile
 def forward_and_back(inputs, labels):
     teacher.train()
     teacher_optimizer.zero_grad() 
