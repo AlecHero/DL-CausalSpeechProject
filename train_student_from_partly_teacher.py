@@ -3,13 +3,14 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torchaudio
-# from ConvTasNet import ConvTasNet
+from conv_tasnet_causal import ConvTasNet
 from tqdm import tqdm
 from eval import Loss, Accuracy
 from neptuneLogger import NeptuneLogger
 from wav_generator import save_to_wav
 from Dataloader.Dataloader import EarsDataset,ConvTasNetDataLoader
 import pickle
+import os
 
 ## CONSTANTS
 num_sources=2
@@ -23,23 +24,17 @@ msk_num_stacks=4
 msk_activate="sigmoid"
 batch_size = 1
 sr = 2000
-_LOCAL = False
+
+blackhole_path = os.getenv('BLACKHOLE')
+
+if not blackhole_path:
+    raise EnvironmentError("The environment variable $BLACKHOLE is not set.")
 
 overfit_idx = 1
-dataset_TRN = EarsDataset(data_dir="/dtu/blackhole/0b/187019/EARS-WHAM", subset = 'train', normalize = False, max_samples=100)
-# Limit to 100 samples
+dataset_TRN = EarsDataset(data_dir=os.path.join(blackhole_path, "EARS-WHAM"), subset = 'train', normalize = False)
 train_loader = ConvTasNetDataLoader(dataset_TRN, batch_size=batch_size, shuffle=True)
-dataset_VAL = EarsDataset(data_dir="/dtu/blackhole/0b/187019/EARS-WHAM", subset = 'valid', normalize = False, max_samples=100)
-# Limit to 100 sample
+dataset_VAL = EarsDataset(data_dir=os.path.join(blackhole_path, "EARS-WHAM"), subset = 'valid', normalize = False)
 val_loader = ConvTasNetDataLoader(dataset_VAL, batch_size=batch_size, shuffle=True)
-
-if _LOCAL:
-    sound_files = pickle.load("sound_file_lists.pkl", "rb")
-    dataset_TRN.clean_files = sound_files["clean_trn_files"]
-    dataset_VAL.clean_files = sound_files["clean_val_files"] 
-    dataset_TRN.noisy_files = sound_files["noisy_trn_files"]
-    dataset_VAL.noisy_files = sound_files["noisy_val_files"]
-
 
 print("Dataloader imported")
 # inputs, labels = next(train_iter)
@@ -57,17 +52,17 @@ print("Dataloader imported")
 # inputs = ...
 # labels = ...
 
-# student = torchaudio.models.conv_tasnet.ConvTasNet(
-#         num_sources=num_sources,
-#         enc_kernel_size=enc_kernel_size,  # Reduced from 20 to avoid size mismatch
-#         enc_num_feats=enc_num_feats,
-#         msk_kernel_size=msk_kernel_size,  # Reduced from 20 to match encoder kernel size
-#         msk_num_feats=msk_num_feats,
-#         msk_num_hidden_feats=msk_num_hidden_feats,
-#         msk_num_layers=msk_num_layers,
-#         msk_num_stacks=msk_num_stacks,
-#         msk_activate=msk_activate
-# )
+student = ConvTasNet(
+        num_sources=num_sources,
+        enc_kernel_size=enc_kernel_size,  # Reduced from 20 to avoid size mismatch
+        enc_num_feats=enc_num_feats,
+        msk_kernel_size=msk_kernel_size,  # Reduced from 20 to match encoder kernel size
+        msk_num_feats=msk_num_feats,
+        msk_num_hidden_feats=msk_num_hidden_feats,
+        msk_num_layers=msk_num_layers,
+        msk_num_stacks=msk_num_stacks,
+        msk_activate=msk_activate,
+)
 
 teacher = torchaudio.models.conv_tasnet.ConvTasNet(
         num_sources=num_sources,
