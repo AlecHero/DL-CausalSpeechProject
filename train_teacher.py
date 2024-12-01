@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torchaudio
-from ConvTasNet import ConvTasNet
+# from ConvTasNet import ConvTasNet
 from tqdm import tqdm
 from eval import Loss, Accuracy
 from neptuneLogger import NeptuneLogger
@@ -11,7 +11,7 @@ from wav_generator import save_to_wav
 from Dataloader.Dataloader import EarsDataset,ConvTasNetDataLoader
 import pickle
 import time
-from train_teacher_convtasnet import ConvTasNet
+# from train_teacher_convtasnet import ConvTasNet
 
 print("Torch is available: ", torch.cuda.is_available())
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
