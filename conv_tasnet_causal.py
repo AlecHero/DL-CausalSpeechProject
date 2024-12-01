@@ -50,14 +50,15 @@ class ConvBlock(torch.nn.Module):
         # padding: int,
         dilation: int = 1,
         no_residual: bool = False,
+        causal: bool = True,
     ):
         super().__init__()
-        padding = (kernel_size - 1) * dilation # causal padding
+        padding = (kernel_size - 1) * dilation if causal else (kernel_size - 1) // 2  # causal and non causal padding
     
         self.conv_layers = torch.nn.Sequential(
             torch.nn.Conv1d(in_channels=io_channels, out_channels=hidden_channels, kernel_size=1),
             torch.nn.PReLU(),
-            CumulativeLayerNorm(normalized_shape=hidden_channels),
+            (CumulativeLayerNorm(normalized_shape=hidden_channels) if causal else torch.nn.GroupNorm(num_groups=1, num_channels=hidden_channels)),
             torch.nn.Conv1d(
                 in_channels=hidden_channels,
                 out_channels=hidden_channels,
@@ -67,8 +68,8 @@ class ConvBlock(torch.nn.Module):
                 groups=hidden_channels,
             ),
             torch.nn.PReLU(),
-            causal_index(padding=padding),
-            CumulativeLayerNorm(normalized_shape=hidden_channels),
+            (causal_index(padding=padding) if causal else torch.nn.Identity()), # Do nothing here if not causal
+            (CumulativeLayerNorm(normalized_shape=hidden_channels) if causal else torch.nn.GroupNorm(num_groups=1, num_channels=hidden_channels)),
         )
         
 
@@ -119,6 +120,7 @@ class MaskGenerator(torch.nn.Module):
         num_layers: int,
         num_stacks: int,
         msk_activate: str,
+        causal: bool = True,
     ):
         super().__init__()
 
@@ -218,6 +220,7 @@ class ConvTasNet(torch.nn.Module):
         msk_num_layers: int = 8,
         msk_num_stacks: int = 3,
         msk_activate: str = "sigmoid",
+        causal: bool = True
     ):
         super().__init__()
 
@@ -243,6 +246,7 @@ class ConvTasNet(torch.nn.Module):
             num_layers=msk_num_layers,
             num_stacks=msk_num_stacks,
             msk_activate=msk_activate,
+            causal = causal
         )
         self.decoder = torch.nn.ConvTranspose1d(
             in_channels=enc_num_feats,
@@ -377,6 +381,7 @@ if __name__ == "__main__":
         msk_num_layers=msk_num_layers,
         msk_num_stacks=msk_num_stacks,
         msk_activate=msk_activate,
+        causal = True
     )
 
     # Print the model architecture
