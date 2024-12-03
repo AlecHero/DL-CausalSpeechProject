@@ -22,4 +22,5 @@
 # your training script here, e.g.
 # activate environment ...
 source ../ears_benchmark/.venv/bin/activate
-python3 train_teacher.py # etc etc
+python3 train_e2e_student_from_teacher_intermediate.py # etc etc
+
