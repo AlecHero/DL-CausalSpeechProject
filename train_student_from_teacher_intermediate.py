@@ -71,20 +71,13 @@ teacher = torch.compile(ConvTasNet(
 ))
 
 checkpoint = torch.load("teacher_latest.pth")
-if 'save_intermediate_values' not in checkpoint:
-    checkpoint['save_intermediate_values'] = False
 
 model_state_dict = teacher.state_dict()
 
 new_checkpoint_state_dict = {}
 for key, value in checkpoint.items():
-    new_key = key.replace('conv_layers.6', 'conv_layers.5')
+    new_key = key.replace('conv_layers.5.bias', 'conv_layers.6.bias').replace('conv_layers.5.weight', 'conv_layers.6.weight')
     new_checkpoint_state_dict[new_key] = value
-
-for key in list(new_checkpoint_state_dict.keys()):
-    if key not in model_state_dict:
-        del new_checkpoint_state_dict[key]
-        print(f"key {key} not in model state dict")
 
 teacher.load_state_dict(new_checkpoint_state_dict)
 
