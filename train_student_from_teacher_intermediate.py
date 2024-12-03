@@ -171,5 +171,3 @@ for i in range(epochs):
     logger.log_metric("val_loss", val_loss)
     torch.save(student.state_dict(), "student.pth")
     logger.log_model("student.pth", "artifacts/student_latest.pth")
-
-loss_func = Loss()

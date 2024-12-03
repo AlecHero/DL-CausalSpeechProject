@@ -271,7 +271,8 @@ class ConvTasNet(torch.nn.Module):
             num_layers=msk_num_layers,
             num_stacks=msk_num_stacks,
             msk_activate=msk_activate,
-            causal = causal
+            causal = causal,
+            save_intermediate_values = save_intermediate_values
         )
         self.decoder = torch.nn.ConvTranspose1d(
             in_channels=enc_num_feats,
