@@ -116,20 +116,25 @@ def eval():
 
 @torch.compile
 def forward_and_back(inputs, labels):
-    teacher.eval()
+    teacher.train()
     student.train()
-    student_optimizer.zero_grad()
     teacher_optimizer.zero_grad()
     teacher_out, teacher_intermediate_values = teacher(inputs)[:, 0:1, :]
     teacher_loss = -loss_func.sisnr(teacher_out, labels)
-    teacher_loss.backward(retain_graph=True)
+    teacher_loss.backward()
     teacher_optimizer.step()
+
+    student_optimizer.zero_grad() 
+    teacher.eval()  # Freeze teacher weights while training student
+    with torch.no_grad():
+        teacher_out, teacher_intermediate_values = teacher(inputs)[:, 0:1, :]
     student_output, student_intermediate_values = student(inputs)[:, 0:1, :]
-    loss = -loss_func.sisnr(student_output, teacher_out)
-    loss += loss_func.sisnr_intermediate(student_intermediate_values, teacher_intermediate_values)
-    loss.backward()
+    student_loss = -loss_func.sisnr(student_output, teacher_out)
+    student_loss += loss_func.sisnr_intermediate(student_intermediate_values, teacher_intermediate_values)
+    student_loss.backward()
     student_optimizer.step()
-    return loss, student_output, teacher_loss
+    
+    return student_loss, student_output, teacher_loss
 
 for i in range(epochs):
     start_time = time.time()
