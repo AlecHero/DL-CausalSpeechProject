@@ -121,11 +121,13 @@ class MaskGenerator(torch.nn.Module):
         num_stacks: int,
         msk_activate: str,
         causal: bool = True,
+        save_intermediate_values: bool = False
     ):
         super().__init__()
 
         self.input_dim = input_dim
         self.num_sources = num_sources
+        self.save_intermediate_values = save_intermediate_values
 
         self.input_norm = torch.nn.GroupNorm(num_groups=1, num_channels=input_dim, eps=1e-8)
         self.input_conv = torch.nn.Conv1d(in_channels=input_dim, out_channels=num_feats, kernel_size=1)
@@ -160,28 +162,49 @@ class MaskGenerator(torch.nn.Module):
         else:
             raise ValueError(f"Unsupported activation {msk_activate}")
 
+    # def forward(self, input: torch.Tensor) -> torch.Tensor:
+    #     """Generate separation mask.
+
+    #     Args:
+    #         input (torch.Tensor): 3D Tensor with shape [batch, features, frames]
+
+    #     Returns:
+    #         Tensor: shape [batch, num_sources, features, frames]
+    #     """
+    #     batch_size = input.shape[0]
+    #     feats = self.input_norm(input)
+    #     feats = self.input_conv(feats)
+    #     output = 0.0
+    #     for layer in self.conv_layers:
+    #         residual, skip = layer(feats)
+    #         if residual is not None:  # the last conv layer does not produce residual
+    #             feats = feats + residual
+    #         output = output + skip
+    #     output = self.output_prelu(output)
+    #     output = self.output_conv(output)
+    #     output = self.mask_activate(output)
+    #     return output.view(batch_size, self.num_sources, self.input_dim, -1)
+
     def forward(self, input: torch.Tensor) -> torch.Tensor:
-        """Generate separation mask.
-
-        Args:
-            input (torch.Tensor): 3D Tensor with shape [batch, features, frames]
-
-        Returns:
-            Tensor: shape [batch, num_sources, features, frames]
-        """
         batch_size = input.shape[0]
         feats = self.input_norm(input)
         feats = self.input_conv(feats)
         output = 0.0
+        intermediate_values = []  # Collect intermediate values if enabled
         for layer in self.conv_layers:
             residual, skip = layer(feats)
             if residual is not None:  # the last conv layer does not produce residual
                 feats = feats + residual
             output = output + skip
+            if self.save_intermediate_values:  # Save the skip connections for loss
+                intermediate_values.append(skip)
         output = self.output_prelu(output)
         output = self.output_conv(output)
         output = self.mask_activate(output)
-        return output.view(batch_size, self.num_sources, self.input_dim, -1)
+        if self.save_intermediate_values:
+            return output.view(batch_size, self.num_sources, self.input_dim, -1), intermediate_values
+        else:
+            return output.view(batch_size, self.num_sources, self.input_dim, -1)
 
 
 class ConvTasNet(torch.nn.Module):
@@ -220,7 +243,8 @@ class ConvTasNet(torch.nn.Module):
         msk_num_layers: int = 8,
         msk_num_stacks: int = 3,
         msk_activate: str = "sigmoid",
-        causal: bool = True
+        causal: bool = True,
+        save_intermediate_values: bool = False
     ):
         super().__init__()
 
@@ -228,6 +252,7 @@ class ConvTasNet(torch.nn.Module):
         self.enc_num_feats = enc_num_feats
         self.enc_kernel_size = enc_kernel_size
         self.enc_stride = enc_kernel_size // 2
+        self.save_intermediate_values = save_intermediate_values
 
         self.encoder = torch.nn.Conv1d(
             in_channels=1,
@@ -300,35 +325,58 @@ class ConvTasNet(torch.nn.Module):
         )
         return torch.cat([input, pad], 2), num_paddings
 
+    # def forward(self, input: torch.Tensor) -> torch.Tensor:
+    #     """Perform source separation. Generate audio source waveforms.
+
+    #     Args:
+    #         input (torch.Tensor): 3D Tensor with shape [batch, channel==1, frames]
+
+    #     Returns:
+    #         Tensor: 3D Tensor with shape [batch, channel==num_sources, frames]
+    #     """
+    #     if input.ndim != 3 or input.shape[1] != 1:
+    #         raise ValueError(f"Expected 3D tensor (batch, channel==1, frames). Found: {input.shape}")
+
+    #     # B: batch size
+    #     # L: input frame length
+    #     # L': padded input frame length
+    #     # F: feature dimension
+    #     # M: feature frame length
+    #     # S: number of sources
+
+    #     padded, num_pads = self._align_num_frames_with_strides(input)  # B, 1, L'
+    #     batch_size, num_padded_frames = padded.shape[0], padded.shape[2]
+    #     feats = self.encoder(padded)  # B, F, M
+    #     masked = self.mask_generator(feats) * feats.unsqueeze(1)  # B, S, F, M
+    #     masked = masked.view(batch_size * self.num_sources, self.enc_num_feats, -1)  # B*S, F, M
+    #     decoded = self.decoder(masked)  # B*S, 1, L'
+    #     output = decoded.view(batch_size, self.num_sources, num_padded_frames)  # B, S, L'
+    #     if num_pads > 0:
+    #         output = output[..., :-num_pads]  # B, S, L
+    #     return output
+
     def forward(self, input: torch.Tensor) -> torch.Tensor:
-        """Perform source separation. Generate audio source waveforms.
-
-        Args:
-            input (torch.Tensor): 3D Tensor with shape [batch, channel==1, frames]
-
-        Returns:
-            Tensor: 3D Tensor with shape [batch, channel==num_sources, frames]
-        """
         if input.ndim != 3 or input.shape[1] != 1:
             raise ValueError(f"Expected 3D tensor (batch, channel==1, frames). Found: {input.shape}")
 
-        # B: batch size
-        # L: input frame length
-        # L': padded input frame length
-        # F: feature dimension
-        # M: feature frame length
-        # S: number of sources
-
-        padded, num_pads = self._align_num_frames_with_strides(input)  # B, 1, L'
+        padded, num_pads = self._align_num_frames_with_strides(input)
         batch_size, num_padded_frames = padded.shape[0], padded.shape[2]
-        feats = self.encoder(padded)  # B, F, M
-        masked = self.mask_generator(feats) * feats.unsqueeze(1)  # B, S, F, M
-        masked = masked.view(batch_size * self.num_sources, self.enc_num_feats, -1)  # B*S, F, M
-        decoded = self.decoder(masked)  # B*S, 1, L'
-        output = decoded.view(batch_size, self.num_sources, num_padded_frames)  # B, S, L'
+        feats = self.encoder(padded)
+        
+        if self.save_intermediate_values:
+            masked, intermediate_values = self.mask_generator(feats)
+        else:
+            masked = self.mask_generator(feats)
+        
+        masked = masked.view(batch_size * self.num_sources, self.enc_num_feats, -1)
+        decoded = self.decoder(masked)
+        output = decoded.view(batch_size, self.num_sources, num_padded_frames)
         if num_pads > 0:
-            output = output[..., :-num_pads]  # B, S, L
-        return output
+            output = output[..., :-num_pads]
+        if self.save_intermediate_values:
+            return output, intermediate_values
+        else:
+            return output
 
 
 def conv_tasnet_base(num_sources: int = 2) -> ConvTasNet:

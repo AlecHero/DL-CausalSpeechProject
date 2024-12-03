@@ -230,3 +230,4 @@ pyrightconfig.json
 .neptune/
 teacher.pth
 logs/
+student.pth

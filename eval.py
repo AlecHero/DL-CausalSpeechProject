@@ -53,6 +53,29 @@ class Loss(object):
         max_perutt, _ = torch.max(sisnr_mat, dim=0)
         # si-snr
         return -torch.sum(max_perutt) / N
+
+    def sisnr_intermediate(self, student_feats, teacher_feats, eps=1e-8):
+        """
+        SI-SNR loss for intermediate feature alignment.
+        Arguments:
+        student_feats: List of tensors representing student intermediate features.
+        teacher_feats: List of tensors representing teacher intermediate features.
+        Return:
+        Total SI-SNR loss across all intermediate layers.
+        """
+        if len(student_feats) != len(teacher_feats):
+            raise RuntimeError(
+                "Mismatch in number of intermediate features: {} vs {}".format(
+                    len(student_feats), len(teacher_feats)))
+        
+        loss = 0.0
+        for s_feat, t_feat in zip(student_feats, teacher_feats):
+            if s_feat.shape != t_feat.shape:
+                raise RuntimeError(
+                    "Feature dimension mismatch: {} vs {}".format(s_feat.shape, t_feat.shape))
+            # Apply SI-SNR to feature maps
+            loss += -torch.mean(self.sisnr(s_feat, t_feat, eps))
+        return loss
     
 class Accuracy():
     def __init__(self):
@@ -76,7 +99,7 @@ class Accuracy():
     # MAE / mean absolute error
     def mae(self, y_pred, y_true):
         return torch.mean(torch.abs(y_pred - y_true))    
-    
+
     
 if __name__ == "__main__":
     ests = torch.randn(4,320)
