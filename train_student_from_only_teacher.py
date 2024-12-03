@@ -131,9 +131,11 @@ def eval():
 def forward_and_back(inputs, labels):
     teacher.eval()
     student.train()
-    student_optimizer.zero_grad() 
+    student_optimizer.zero_grad()
+    with torch.no_grad():
+        teacher_out = teacher(inputs)[:, 0:1, :]
     student_output = student(inputs)[:, 0:1, :]
-    loss = -loss_func.sisnr(student_output, labels)
+    loss = -loss_func.sisnr(student_output, teacher_out)
     loss.backward()
     student_optimizer.step()
     return loss, student_output 
