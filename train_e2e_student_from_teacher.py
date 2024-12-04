@@ -42,7 +42,7 @@ val_loader = ConvTasNetDataLoader(dataset_VAL, batch_size=batch_size, shuffle=Tr
 
 print("Dataloader imported")
 
-student = torch.compile(ConvTasNet(
+student = ConvTasNet(
         num_sources=num_sources,
         enc_kernel_size=enc_kernel_size,  # Reduced from 20 to avoid size mismatch
         enc_num_feats=enc_num_feats,
@@ -53,9 +53,9 @@ student = torch.compile(ConvTasNet(
         msk_num_stacks=msk_num_stacks,
         msk_activate=msk_activate,
         causal = True
-))
+)
 
-teacher = torch.compile(torchaudio.models.conv_tasnet.ConvTasNet(
+teacher = torchaudio.models.conv_tasnet.ConvTasNet(
         num_sources=num_sources,
         enc_kernel_size=enc_kernel_size,  # Reduced from 20 to avoid size mismatch
         enc_num_feats=enc_num_feats,
@@ -65,7 +65,7 @@ teacher = torch.compile(torchaudio.models.conv_tasnet.ConvTasNet(
         msk_num_layers=msk_num_layers,
         msk_num_stacks=msk_num_stacks,
         msk_activate=msk_activate
-))
+)
 
 teacher = teacher.to(device)
 student = student.to(device)
@@ -94,7 +94,7 @@ logger.log_metadata({
 
 loss_func = Loss()
 
-@torch.compile
+#@torch.compile
 def eval():
     teacher.eval()
     student.eval()
@@ -111,7 +111,7 @@ def eval():
             losses.append(loss)
     return sum(losses)/len(losses)
 
-@torch.compile
+#@torch.compile
 def forward_and_back(inputs, labels):
     teacher.train()
     student.train()

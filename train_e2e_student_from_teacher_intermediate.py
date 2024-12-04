@@ -70,9 +70,6 @@ teacher = ConvTasNet(
         save_intermediate_values=True
 )
 
-student = torch.compile(student, backend="inductor", mode="max-autotune")
-teacher = torch.compile(teacher, backend="inductor", mode="max-autotune")
-
 teacher = teacher.to(device)
 student = student.to(device)
 
