@@ -35,9 +35,9 @@ if not blackhole_path:
     raise EnvironmentError("The environment variable $BLACKHOLE is not set.")
 
 overfit_idx = 1
-dataset_TRN = EarsDataset(data_dir=os.path.join(blackhole_path, "EARS-WHAM"), subset = 'train', normalize = False, max_samples = 10)
+dataset_TRN = EarsDataset(data_dir=os.path.join(blackhole_path, "EARS-WHAM"), subset = 'train', normalize = False)
 train_loader = ConvTasNetDataLoader(dataset_TRN, batch_size=batch_size, shuffle=True)
-dataset_VAL = EarsDataset(data_dir=os.path.join(blackhole_path, "EARS-WHAM"), subset = 'valid', normalize = False, max_samples = 10)
+dataset_VAL = EarsDataset(data_dir=os.path.join(blackhole_path, "EARS-WHAM"), subset = 'valid', normalize = False)
 val_loader = ConvTasNetDataLoader(dataset_VAL, batch_size=batch_size, shuffle=True)
 
 print("Dataloader imported")
