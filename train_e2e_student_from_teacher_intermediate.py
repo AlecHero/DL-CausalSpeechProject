@@ -35,14 +35,14 @@ if not blackhole_path:
     raise EnvironmentError("The environment variable $BLACKHOLE is not set.")
 
 overfit_idx = 1
-dataset_TRN = EarsDataset(data_dir=os.path.join(blackhole_path, "EARS-WHAM"), subset = 'train', normalize = False, max_samples = 10)
+dataset_TRN = EarsDataset(data_dir=os.path.join(blackhole_path, "EARS-WHAM"), subset = 'train', normalize = False)
 train_loader = ConvTasNetDataLoader(dataset_TRN, batch_size=batch_size, shuffle=True)
-dataset_VAL = EarsDataset(data_dir=os.path.join(blackhole_path, "EARS-WHAM"), subset = 'valid', normalize = False, max_samples = 10)
+dataset_VAL = EarsDataset(data_dir=os.path.join(blackhole_path, "EARS-WHAM"), subset = 'valid', normalize = False)
 val_loader = ConvTasNetDataLoader(dataset_VAL, batch_size=batch_size, shuffle=True)
 
 print("Dataloader imported")
 
-student = torch.compile(ConvTasNet(
+student = ConvTasNet(
         num_sources=num_sources,
         enc_kernel_size=enc_kernel_size,  # Reduced from 20 to avoid size mismatch
         enc_num_feats=enc_num_feats,
@@ -53,10 +53,10 @@ student = torch.compile(ConvTasNet(
         msk_num_stacks=msk_num_stacks,
         msk_activate=msk_activate,
         causal = True,
-        save_intermediate_values = True,
-))
+        save_intermediate_values = True
+)
 
-teacher = torch.compile(ConvTasNet(
+teacher = ConvTasNet(
         num_sources=num_sources,
         enc_kernel_size=enc_kernel_size,  # Reduced from 20 to avoid size mismatch
         enc_num_feats=enc_num_feats,
@@ -66,9 +66,12 @@ teacher = torch.compile(ConvTasNet(
         msk_num_layers=msk_num_layers,
         msk_num_stacks=msk_num_stacks,
         msk_activate=msk_activate,
-        causal = False,
-        save_intermediate_values = True,
-))
+        causal=False,
+        save_intermediate_values=True
+)
+
+student = torch.compile(student, backend="inductor", mode="max-autotune")
+teacher = torch.compile(teacher, backend="inductor", mode="max-autotune")
 
 teacher = teacher.to(device)
 student = student.to(device)
@@ -82,7 +85,7 @@ epochs = 200
 logger = NeptuneLogger()
 student_optimizer = torch.optim.Adam(student.parameters())
 teacher_optimizer = torch.optim.Adam(teacher.parameters())
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(teacher_optimizer, mode='min', factor = 0.5, patience = 600)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(teacher_optimizer, mode='min', factor = 0.5, patience = 3)
 
 print("Logger started")
 
@@ -97,7 +100,12 @@ logger.log_metadata({
 
 loss_func = Loss()
 
-@torch.compile
+# @torch.compile(backend="inductor", mode="reduce-overhead")
+def eval_step(student, inputs, labels):
+    output, _ = student(inputs)
+    clean_sound_student_output = output[:, 0:1, :]
+    return -loss_func.sisnr(clean_sound_student_output, labels)
+
 def eval():
     teacher.eval()
     student.eval()
@@ -108,33 +116,48 @@ def eval():
             inputs = inputs[:, :, :]
             labels = labels[:, :, :]
             inputs, labels = inputs.to(device), labels.to(device)
-
-            clean_sound_student_output, _ = student(inputs)[:, 0:1, :]
-            loss = -loss_func.sisnr(clean_sound_student_output, labels)
+            
+            loss = eval_step(student, inputs, labels)
             losses.append(loss)
     return sum(losses)/len(losses)
 
-@torch.compile
+# @torch.compile(backend="inductor", mode="reduce-overhead")
+def teacher_forward_step(teacher, inputs, labels):
+    output, intermediate_values = teacher(inputs)
+    teacher_out = output[:, 0:1, :]
+    teacher_loss = -loss_func.sisnr(teacher_out, labels)
+    return teacher_loss, teacher_out, intermediate_values
+
+# @torch.compile(backend="inductor", mode="reduce-overhead")
+def student_forward_step(student, teacher_out, teacher_intermediate_values):
+    output, student_intermediate_values = student(inputs)
+    student_out = output[:, 0:1, :]
+    student_loss = -loss_func.sisnr(student_out, teacher_out)
+    student_loss += loss_func.sisnr_intermediate(student_intermediate_values, teacher_intermediate_values)
+    return student_loss, student_out
+
 def forward_and_back(inputs, labels):
+    # Teacher forward and backward
     teacher.train()
     student.train()
     teacher_optimizer.zero_grad()
-    teacher_out, teacher_intermediate_values = teacher(inputs)[:, 0:1, :]
-    teacher_loss = -loss_func.sisnr(teacher_out, labels)
+    
+    teacher_loss, teacher_out, teacher_intermediate_values = teacher_forward_step(teacher, inputs, labels)
     teacher_loss.backward()
     teacher_optimizer.step()
 
-    student_optimizer.zero_grad() 
+    # Student forward and backward
+    student_optimizer.zero_grad()
     teacher.eval()  # Freeze teacher weights while training student
+    
     with torch.no_grad():
         teacher_out, teacher_intermediate_values = teacher(inputs)[:, 0:1, :]
-    student_output, student_intermediate_values = student(inputs)[:, 0:1, :]
-    student_loss = -loss_func.sisnr(student_output, teacher_out)
-    student_loss += loss_func.sisnr_intermediate(student_intermediate_values, teacher_intermediate_values)
+    
+    student_loss, student_out = student_forward_step(student, teacher_out, teacher_intermediate_values)
     student_loss.backward()
     student_optimizer.step()
     
-    return student_loss, student_output, teacher_loss
+    return student_loss, student_out, teacher_loss
 
 for i in range(epochs):
     start_time = time.time()

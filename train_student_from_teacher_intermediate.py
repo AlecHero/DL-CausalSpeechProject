@@ -42,7 +42,7 @@ val_loader = ConvTasNetDataLoader(dataset_VAL, batch_size=batch_size, shuffle=Tr
 
 print("Dataloader imported")
 
-student = torch.compile(ConvTasNet(
+student = ConvTasNet(
         num_sources=num_sources,
         enc_kernel_size=enc_kernel_size,  # Reduced from 20 to avoid size mismatch
         enc_num_feats=enc_num_feats,
@@ -54,9 +54,9 @@ student = torch.compile(ConvTasNet(
         msk_activate=msk_activate,
         causal = True,
         save_intermediate_values = True
-))
+)
 
-teacher = torch.compile(ConvTasNet(
+teacher = ConvTasNet(
         num_sources=num_sources,
         enc_kernel_size=enc_kernel_size,  # Reduced from 20 to avoid size mismatch
         enc_num_feats=enc_num_feats,
@@ -68,7 +68,10 @@ teacher = torch.compile(ConvTasNet(
         msk_activate=msk_activate,
         causal=False,
         save_intermediate_values=True
-))
+)
+
+student = torch.compile(student, backend="inductor", mode="max-autotune")
+teacher = torch.compile(teacher, backend="inductor", mode="max-autotune")
 
 checkpoint = torch.load("teacher_latest.pth")
 
@@ -93,7 +96,7 @@ epochs = 200
 logger = NeptuneLogger()
 student_optimizer = torch.optim.Adam(student.parameters())
 # teacher_optimizer = torch.optim.Adam(teacher.parameters())
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(student_optimizer, mode='min', factor = 0.5, patience = 600)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(student_optimizer, mode='min', factor = 0.5, patience = 3)
 
 print("Logger started")
 
@@ -108,7 +111,15 @@ logger.log_metadata({
 
 loss_func = Loss()
 
-@torch.compile
+@torch.compile(backend="inductor", mode="reduce-overhead")
+def eval_step(student, inputs, labels):
+    student_output = student(inputs)
+    if isinstance(student_output, tuple):
+        clean_sound_student_output = student_output[0][:, 0:1, :]
+    else:
+        clean_sound_student_output = student_output[:, 0:1, :]
+    return -loss_func.sisnr(clean_sound_student_output, labels)
+
 def eval():
     teacher.eval()
     student.eval()
@@ -119,25 +130,44 @@ def eval():
             inputs = inputs[:, :, :]
             labels = labels[:, :, :]
             inputs, labels = inputs.to(device), labels.to(device)
-
-            clean_sound_student_output, _ = student(inputs)[:, 0:1, :]
-            loss = -loss_func.sisnr(clean_sound_student_output, labels)
-            losses.append(loss)
+            loss = eval_step(student, inputs, labels)
+            losses.append(loss.item())
     return sum(losses)/len(losses)
 
-@torch.compile
+@torch.compile(backend="inductor", mode="reduce-overhead")
+def forward_step(student, teacher, inputs):
+    with torch.no_grad():
+        teacher_output = teacher(inputs)
+        if isinstance(teacher_output, tuple):
+            teacher_out, teacher_intermediate_values = teacher_output
+        else:
+            teacher_out = teacher_output
+            teacher_intermediate_values = None
+        teacher_out = teacher_out[:, 0:1, :]
+    
+    student_output = student(inputs)
+    if isinstance(student_output, tuple):
+        student_out, student_intermediate_values = student_output
+    else:
+        student_out = student_output
+        student_intermediate_values = None
+    student_out = student_out[:, 0:1, :]
+    
+    loss = -loss_func.sisnr(student_out, teacher_out)
+    if teacher_intermediate_values is not None and student_intermediate_values is not None:
+        loss += loss_func.sisnr_intermediate(student_intermediate_values, teacher_intermediate_values)
+    
+    return loss, student_out
+
 def forward_and_back(inputs, labels):
     teacher.eval()
     student.train()
     student_optimizer.zero_grad()
-    with torch.no_grad():
-        teacher_out, teacher_intermediate_values = teacher(inputs)[:, 0:1, :]
-    student_output, student_intermediate_values = student(inputs)[:, 0:1, :]
-    loss = -loss_func.sisnr(student_output, teacher_out)
-    loss += loss_func.sisnr_intermediate(student_intermediate_values, teacher_intermediate_values)
+    
+    loss, student_output = forward_step(student, teacher, inputs)
     loss.backward()
     student_optimizer.step()
-    return loss, student_output 
+    return loss, student_output
 
 for i in range(epochs):
     start_time = time.time()

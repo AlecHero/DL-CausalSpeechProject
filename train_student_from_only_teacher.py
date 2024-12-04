@@ -95,7 +95,7 @@ epochs = 200
 logger = NeptuneLogger()
 student_optimizer = torch.optim.Adam(student.parameters())
 # teacher_optimizer = torch.optim.Adam(teacher.parameters())
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(student_optimizer, mode='min', factor = 0.5, patience = 600)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(student_optimizer, mode='min', factor = 0.5, patience = 3)
 
 print("Logger started")
 
@@ -172,5 +172,3 @@ for i in range(epochs):
     logger.log_metric("val_loss", val_loss)
     torch.save(student.state_dict(), "student.pth")
     logger.log_model("student.pth", "artifacts/student_latest.pth")
-
-loss_func = Loss()
