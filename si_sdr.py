@@ -1,5 +1,5 @@
 from torchmetrics.audio import ScaleInvariantSignalDistortionRatio
-from Dataloader.Dataloader import EarsDataset,ConvTasNetDataLoader
+from Dataloader.Dataloader import EarsDataset
 import os
 
 blackhole_path = os.getenv('BLACKHOLE')
@@ -9,6 +9,12 @@ if not blackhole_path:
 dataset_TRN = EarsDataset(data_dir=os.path.join(blackhole_path, "EARS-WHAM"), subset = 'train', normalize = False)
 dataset_VAL = EarsDataset(data_dir=os.path.join(blackhole_path, "EARS-WHAM"), subset = 'valid', normalize = False)
 
-print(dataset_TRN[0])
+noisy_data = []
+clean_data = []
+for i in range(len(dataset_TRN)):
+    noisy, clean = dataset_TRN[i]
+    noisy_data.append(noisy)
+    clean_data.append(clean)
 
-print(ScaleInvariantSignalDistortionRatio)
+si_sdr = ScaleInvariantSignalDistortionRatio()
+si_sdr(noisy_data, clean_data)
