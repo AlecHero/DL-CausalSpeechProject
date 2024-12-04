@@ -1,16 +1,16 @@
 #!/bin/sh
 
 # A100 GPU queue, there is also gpua40 and gpua10
-#BSUB -q gpua10
+#BSUB -q gpua100
 
 # job name
 #BSUB -J job_name_goes_here
 
 # 4 cpus, 1 machine, 1 gpu, 24 hours (the max)
-#BSUB -n 1
+#BSUB -n 4
 #BSUB -R "span[hosts=1]"
 #BSUB -gpu "num=1:mode=exclusive_process"
-#BSUB -W 1:00
+#BSUB -W 24:00
 
 # at least 32 GB RAM
 #BSUB -R "rusage[mem=32GB]"
