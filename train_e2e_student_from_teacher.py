@@ -42,7 +42,7 @@ val_loader = ConvTasNetDataLoader(dataset_VAL, batch_size=batch_size, shuffle=Tr
 
 print("Dataloader imported")
 
-student = ConvTasNet(
+student = torch.compile(ConvTasNet(
         num_sources=num_sources,
         enc_kernel_size=enc_kernel_size,  # Reduced from 20 to avoid size mismatch
         enc_num_feats=enc_num_feats,
@@ -52,10 +52,11 @@ student = ConvTasNet(
         msk_num_layers=msk_num_layers,
         msk_num_stacks=msk_num_stacks,
         msk_activate=msk_activate,
-        causal = True
-)
+        causal = True,
+        save_intermediate_values = False
+))
 
-teacher = torchaudio.models.conv_tasnet.ConvTasNet(
+teacher = torch.compile(ConvTasNet(
         num_sources=num_sources,
         enc_kernel_size=enc_kernel_size,  # Reduced from 20 to avoid size mismatch
         enc_num_feats=enc_num_feats,
@@ -64,8 +65,10 @@ teacher = torchaudio.models.conv_tasnet.ConvTasNet(
         msk_num_hidden_feats=msk_num_hidden_feats,
         msk_num_layers=msk_num_layers,
         msk_num_stacks=msk_num_stacks,
-        msk_activate=msk_activate
-)
+        msk_activate=msk_activate,
+        causal = True,
+        save_intermediate_values = False
+))
 
 teacher = teacher.to(device)
 student = student.to(device)
@@ -79,7 +82,7 @@ epochs = 200
 logger = NeptuneLogger()
 student_optimizer = torch.optim.Adam(student.parameters())
 teacher_optimizer = torch.optim.Adam(teacher.parameters())
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(teacher_optimizer, mode='min', factor = 0.5, patience = 3)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(student_optimizer, mode='min', factor = 0.5, patience = 3)
 
 print("Logger started")
 
@@ -89,13 +92,13 @@ logger.log_metadata({
     "scheduler": "Reduce on Plateau",
     "epoch": epochs,
     "batch_size": batch_size,
-    "desc": "E2E student from teacher"
+    "desc": "Train student from only teacher End 2 End"
 })
 
 loss_func = Loss()
 
-#@torch.compile
-def eval():
+@torch.compile
+def eval_student():
     teacher.eval()
     student.eval()
     losses = []
@@ -111,30 +114,47 @@ def eval():
             losses.append(loss)
     return sum(losses)/len(losses)
 
-#@torch.compile
+@torch.compile
+def eval_teacher():
+    teacher.eval()
+    student.eval()
+    losses = []
+    with torch.no_grad():
+        for batch in val_loader:
+            inputs, labels = batch
+            inputs = inputs[:, :, :]
+            labels = labels[:, :, :]
+            inputs, labels = inputs.to(device), labels.to(device)
+
+            clean_sound_teacher_output = teacher(inputs)[:, 0:1, :]
+            loss = -loss_func.sisnr(clean_sound_teacher_output, labels)
+            losses.append(loss)
+    return sum(losses)/len(losses)
+
+@torch.compile
 def forward_and_back(inputs, labels):
     teacher.train()
-    student.train()
     teacher_optimizer.zero_grad()
     teacher_out = teacher(inputs)[:, 0:1, :]
     teacher_loss = -loss_func.sisnr(teacher_out, labels)
     teacher_loss.backward()
     teacher_optimizer.step()
 
-    student_optimizer.zero_grad() 
-    teacher.eval()  # Freeze teacher weights while training student
+    teacher.eval()
+    student.train()
+    student_optimizer.zero_grad()
     with torch.no_grad():
         teacher_out = teacher(inputs)[:, 0:1, :]
     student_output = student(inputs)[:, 0:1, :]
-    student_loss = -loss_func.sisnr(student_output, teacher_out)
-    student_loss.backward()
+    loss = -loss_func.sisnr(student_output, teacher_out)
+    loss.backward()
     student_optimizer.step()
-    
-    return student_loss, student_output, teacher_loss
+    return loss, student_output, teacher_loss, teacher_out
 
 for i in range(epochs):
     start_time = time.time()
     losses = []
+    teacher_losses = []
     for batch in train_loader:
         j += 1
         batched_inputs, batched_labels = batch
@@ -142,14 +162,17 @@ for i in range(epochs):
         labels = batched_labels[:, :, :]
         inputs, labels = inputs.to(device), labels.to(device)
 
-        loss, clean_sound_student_output, teacher_loss = forward_and_back(inputs, labels)
+        loss, clean_sound_student_output, teacher_loss, clean_sound_teacher_output = forward_and_back(inputs, labels)
         losses.append(loss.item())
+        teacher_losses.append(teacher_loss.item())
         if j % 1000 == 0:
             print(f"at {j} out of {len(train_loader)}")
             avg_loss = sum(losses)/len(losses)
+            avg_teacher_loss = sum(teacher_losses)/len(teacher_losses)
             losses = []
+            teacher_losses = []
             logger.log_metric("train_loss", avg_loss, step=j)
-            logger.log_metric("teacher_loss", teacher_loss, step=j)
+            logger.log_metric("teacher_train_loss", avg_teacher_loss, step=j)
             for param_group in student_optimizer.param_groups:
                 current_lr = param_group['lr']
             logger.log_metric("lr_student", current_lr, step=j)
@@ -157,16 +180,18 @@ for i in range(epochs):
     logger.log_metric("epoch_time", time.time() - start_time) 
     save_to_wav(clean_sound_student_output[0:1, 0:1, :].cpu().detach().numpy(), output_filename="student_train_clean.wav")
     save_to_wav(labels[0:1, 0:1, :].cpu().detach().numpy(), output_filename="train_true_label.wav")
+    save_to_wav(clean_sound_teacher_output[0:1, 0:1, :].cpu().detach().numpy(), output_filename="teacher_train_clean.wav")
     logger.log_custom_soundfile("student_train_clean.wav", f"train/student_clean_index{i}.wav")
     logger.log_custom_soundfile("train_true_label.wav", "train/true_label.wav")
+    logger.log_custom_soundfile("teacher_train_clean.wav", f"train/teacher_clean_index{i}.wav")
 
-    val_loss = eval()
+    val_loss = eval_student()
+    val_teacher_loss = eval_teacher()
     scheduler.step(val_loss)
     logger.log_metric("val_loss", val_loss)
+    logger.log_metric("val_teacher_loss", val_teacher_loss)
     torch.save(student.state_dict(), "student.pth")
     logger.log_model("student.pth", "artifacts/student_latest.pth")
     torch.save(teacher.state_dict(), "teacher.pth")
     logger.log_model("teacher.pth", "artifacts/teacher_latest.pth")
-
-loss_func = Loss()
 

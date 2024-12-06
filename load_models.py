@@ -23,6 +23,7 @@ def get_train_dataset(mock: bool = False):
         dataset_TRN = [[torch.rand(1, 1, 149158), torch.rand(1, 1, 149158)]]
     else:
         dataset_TRN = EarsDataset(data_dir=os.path.join(blackhole_path, "EARS-WHAM"), subset = 'train', normalize = False)
+        print(dataset_TRN[0][0].shape, dataset_TRN[0][0].dtype)
     print("Dataset loaded")
     return dataset_TRN
 
@@ -72,17 +73,18 @@ def get_model_predictions_and_data(
     result = []
     for i in range(datapoints):
         inputs, outputs = dataset_TRN[indexes[i]]
-        inputs.unsqueeze_(0) 
+        inputs.unsqueeze_(0)
         outputs.unsqueeze_(0)
         if save_memory:
             inputs, outputs = inputs[:, :, :16000], outputs[:, :, :16000]
         model_outputs = []
-        for model in tqdm(models, desc = f"Getting model predictions for {i}'th datapoint"):
-            predictions, _ = model(inputs)
-            predictions = predictions[:, 0:1, :] # Only the clean part
-            model_outputs.append(predictions)
-            assert predictions.shape == outputs.shape, f"Predictions and outputs have different shapes: {predictions.shape} and {outputs.shape}"
-            assert predictions.shape == inputs.shape, f"Predictions and inputs have different shapes: {predictions.shape} and {inputs.shape}"
+        with torch.no_grad():
+            for model in tqdm(models, desc = f"Getting model predictions for {i}'th datapoint"):
+                predictions, _ = model(inputs)
+                predictions = predictions[:, 0:1, :] # Only the clean part
+                model_outputs.append(predictions)
+                assert predictions.shape == outputs.shape, f"Predictions and outputs have different shapes: {predictions.shape} and {outputs.shape}"
+                assert predictions.shape == inputs.shape, f"Predictions and inputs have different shapes: {predictions.shape} and {inputs.shape}"
         result.append((model_outputs, inputs, outputs))
 
     return result
