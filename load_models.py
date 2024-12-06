@@ -20,12 +20,11 @@ blackhole_path = os.getenv('BLACKHOLE')
 def get_train_dataset(mock: bool = False):
     print("Loading dataset...")
     if mock:
-        dataset_TRN = [[torch.rand(1, 1, 149158), torch.rand(1, 1, 149158)]]
+        dataset_VAL = [[torch.rand(1, 149158), torch.rand(1, 149158)]]
     else:
-        dataset_TRN = EarsDataset(data_dir=os.path.join(blackhole_path, "EARS-WHAM"), subset = 'train', normalize = False)
-        print(dataset_TRN[0][0].shape, dataset_TRN[0][0].dtype)
+        dataset_VAL = EarsDataset(data_dir=os.path.join(blackhole_path, "EARS-WHAM"), subset = 'valid', normalize = False)
     print("Dataset loaded")
-    return dataset_TRN
+    return dataset_VAL
 
 def load_models():
     models_load_strings = ["models/student_only_labels_cpu.pth", "models/student_only_teacher_cpu.pth", "models/student_partly_teacher_cpu.pth"]
@@ -67,13 +66,13 @@ def get_model_predictions_and_data(
     assert not (mock is True and datapoints > 1), f"If you want to mock, you should only want 1 datapoint, but you want {datapoints}"
     if models is None:
         models = load_models()
-    dataset_TRN = get_train_dataset(mock = mock)
-    assert len(dataset_TRN) >= datapoints
-    indexes = random.sample(range(len(dataset_TRN)), datapoints) if not deterministic else range(datapoints)
+    dataset_VAL = get_train_dataset(mock = mock)
+    assert len(dataset_VAL) >= datapoints
+    indexes = random.sample(range(len(dataset_VAL)), datapoints) if not deterministic else range(datapoints)
     result = []
     for i in range(datapoints):
-        inputs, outputs = dataset_TRN[indexes[i]]
-        inputs.unsqueeze_(0)
+        inputs, outputs = dataset_VAL[indexes[i]]
+        inputs.unsqueeze_(0) 
         outputs.unsqueeze_(0)
         if save_memory:
             inputs, outputs = inputs[:, :, :16000], outputs[:, :, :16000]
@@ -85,7 +84,7 @@ def get_model_predictions_and_data(
                 model_outputs.append(predictions)
                 assert predictions.shape == outputs.shape, f"Predictions and outputs have different shapes: {predictions.shape} and {outputs.shape}"
                 assert predictions.shape == inputs.shape, f"Predictions and inputs have different shapes: {predictions.shape} and {inputs.shape}"
-        result.append((model_outputs, inputs, outputs))
+            result.append((model_outputs, inputs, outputs))
 
     return result
 
