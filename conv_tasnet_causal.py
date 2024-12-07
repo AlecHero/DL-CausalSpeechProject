@@ -17,15 +17,15 @@ class causal_index(torch.nn.Module):
         return x[..., :-self.padding]
 
 
-class CumulativeLayerNorm(torch.nn.LayerNorm):
-    def __init__(self, normalized_shape):
-        super().__init__(normalized_shape=normalized_shape, elementwise_affine=True)
+# class CumulativeLayerNorm(torch.nn.LayerNorm):
+#     def __init__(self, normalized_shape):
+#         super().__init__(normalized_shape=normalized_shape, elementwise_affine=True)
 
-    def forward(self, x):
-        x = torch.transpose(x, 1, 2)
-        x = super().forward(x)
-        x = torch.transpose(x, 1, 2)
-        return x
+#     def forward(self, x):
+#         x = torch.transpose(x, 1, 2)
+#         x = super().forward(x)
+#         x = torch.transpose(x, 1, 2)
+#         return x
 
 class ConvBlock(torch.nn.Module):
     """1D Convolutional block.
@@ -53,12 +53,15 @@ class ConvBlock(torch.nn.Module):
         causal: bool = True,
     ):
         super().__init__()
+        # CHANGED
         padding = (kernel_size - 1) * dilation if causal else (kernel_size - 1) // 2  # causal and non causal padding
     
         self.conv_layers = torch.nn.Sequential(
+            # WAS CHANGED CumulativeLayerNorm:
             torch.nn.Conv1d(in_channels=io_channels, out_channels=hidden_channels, kernel_size=1),
             torch.nn.PReLU(),
-            (CumulativeLayerNorm(normalized_shape=hidden_channels) if causal else torch.nn.GroupNorm(num_groups=1, num_channels=hidden_channels)),
+            torch.nn.GroupNorm(num_groups=1, num_channels=hidden_channels, eps=1e-08),
+            # (CumulativeLayerNorm(normalized_shape=hidden_channels) if causal else torch.nn.GroupNorm(num_groups=1, num_channels=hidden_channels)),
             torch.nn.Conv1d(
                 in_channels=hidden_channels,
                 out_channels=hidden_channels,
@@ -69,9 +72,11 @@ class ConvBlock(torch.nn.Module):
             ),
             torch.nn.PReLU(),
             (causal_index(padding=padding) if causal else torch.nn.Identity()), # Do nothing here if not causal
-            (CumulativeLayerNorm(normalized_shape=hidden_channels) if causal else torch.nn.GroupNorm(num_groups=1, num_channels=hidden_channels)),
+            torch.nn.GroupNorm(num_groups=1, num_channels=hidden_channels, eps=1e-08),
+            # (CumulativeLayerNorm(normalized_shape=hidden_channels) if causal else torch.nn.GroupNorm(num_groups=1, num_channels=hidden_channels)),
+            
+            
         )
-        
 
         self.res_out = (
             None
@@ -82,7 +87,6 @@ class ConvBlock(torch.nn.Module):
 
     def forward(self, input: torch.Tensor) -> Tuple[Optional[torch.Tensor], torch.Tensor]:
         feature = self.conv_layers(input)
-        
         if self.res_out is None:
             residual = None
         else:
@@ -143,6 +147,7 @@ class MaskGenerator(torch.nn.Module):
                         hidden_channels=num_hidden,
                         kernel_size=kernel_size,
                         dilation=multi,
+                        # CHANGED:
                         # padding=multi,
                         # The last ConvBlock does not need residual
                         no_residual=(l == (num_layers - 1) and s == (num_stacks - 1)),
@@ -190,6 +195,7 @@ class MaskGenerator(torch.nn.Module):
         feats = self.input_norm(input)
         feats = self.input_conv(feats)
         output = 0.0
+        # CHANGED: INTERMEDIATES SAVED:
         intermediate_values = []  # Collect intermediate values if enabled
         for layer in self.conv_layers:
             residual, skip = layer(feats)
@@ -252,6 +258,7 @@ class ConvTasNet(torch.nn.Module):
         self.enc_num_feats = enc_num_feats
         self.enc_kernel_size = enc_kernel_size
         self.enc_stride = enc_kernel_size // 2
+        # CHANGED:
         self.save_intermediate_values = save_intermediate_values
 
         self.encoder = torch.nn.Conv1d(
@@ -271,6 +278,7 @@ class ConvTasNet(torch.nn.Module):
             num_layers=msk_num_layers,
             num_stacks=msk_num_stacks,
             msk_activate=msk_activate,
+            # CHANGED:
             causal = causal,
             save_intermediate_values = save_intermediate_values
         )
@@ -365,6 +373,7 @@ class ConvTasNet(torch.nn.Module):
         feats = self.encoder(padded)
         
         if self.save_intermediate_values:
+            # CHANGED:
             masked, intermediate_values = self.mask_generator(feats)
         else:
             masked = self.mask_generator(feats)
@@ -374,6 +383,7 @@ class ConvTasNet(torch.nn.Module):
         output = decoded.view(batch_size, self.num_sources, num_padded_frames)
         if num_pads > 0:
             output = output[..., :-num_pads]
+        # CHANGED:
         if self.save_intermediate_values:
             return output, intermediate_values
         else:
