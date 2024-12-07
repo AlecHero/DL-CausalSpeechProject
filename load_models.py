@@ -15,14 +15,16 @@ msk_num_hidden_feats = 512
 msk_num_layers = 8
 msk_num_stacks = 3
 msk_activate = 'sigmoid'
+
 blackhole_path = os.getenv('BLACKHOLE')
+data_path = os.path.join(blackhole_path, "EARS-WHAM")
 
 def get_train_dataset(mock: bool = False):
     print("Loading dataset...")
     if mock:
         dataset_VAL = [[torch.rand(1, 149158), torch.rand(1, 149158)]]
     else:
-        dataset_VAL = EarsDataset(data_dir=os.path.join(blackhole_path, "EARS-WHAM"), subset = 'valid', normalize = False)
+        dataset_VAL = EarsDataset(data_dir=data_path, subset = 'valid', normalize = False)
     print("Dataset loaded")
     return dataset_VAL
 
@@ -72,6 +74,8 @@ def get_model_predictions_and_data(
     result = []
     for i in range(datapoints):
         inputs, outputs = dataset_VAL[indexes[i]]
+        min_len = min(len(inputs), len(outputs))
+        inputs, outputs = inputs[:, :, :min_len], outputs[:, :, :min_len]
         inputs.unsqueeze_(0) 
         outputs.unsqueeze_(0)
         if save_memory:
