@@ -43,27 +43,6 @@ def compute_metrics(results, save_path=None):
             json.dump([baseline_metrics, prediction_metrics], f, indent=4)
     
     return baseline_metrics, prediction_metrics
-        
-# fig.savefig("accuracy_testplot.png")
-# return si_sdr_scores, sdr_scores, snr_scores
-
-# def plot_metrics(metrics, num_datapoints, save_path=None):
-#     x = range(num_datapoints)
-
-#     plt.figure(figsize=(12, 8))
-    
-#     for metric_name, metric_values in metrics.items():
-#         plt.plot(x, avg_values, label=f"Average {metric_name}")
-
-#     plt.xlabel("Datapoint Index")
-#     plt.ylabel("Metric Value")
-#     plt.title("Model Performance Metrics")
-#     plt.legend()
-#     plt.grid()
-
-#     if save_path: plt.savefig(save_path)
-#     else: print("No save_path given")
-
 
 if __name__ == "__main__":
     results = get_model_predictions_and_data(
