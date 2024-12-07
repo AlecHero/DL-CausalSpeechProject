@@ -1,11 +1,14 @@
 import neptune
+from collections import defaultdict
 
 # https://app.neptune.ai/o/apros7/org/CausalSpeech/runs/table?viewId=standard-view
 
 class NeptuneLogger():
-    def __init__(self):
+    def __init__(self, test=False):
+        self.test = test
         self.run = neptune.init_run(
             project="apros7/CausalSpeech",
+            mode="offline" if test else "async",
             api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIwNDg5ZTA0Mi0yNGZlLTRjN2EtODI5Yy0xODI2ZDNiMDY0NGUifQ==",
         )  # your credentials
 
@@ -32,6 +35,8 @@ class NeptuneLogger():
             self.run[metric_name].append(value=metric_value, step=step)
         else:
             self.run[metric_name].append(metric_value)
+        if self.test:
+            print(f"Logged {metric_name} with value {metric_value} at step {step}")
 
     def log_custom_soundfile(self, file_path, file_name):
         self.run[file_name].upload(file_path)

@@ -12,6 +12,7 @@ from Dataloader.Dataloader import EarsDataset,ConvTasNetDataLoader
 import pickle
 import time
 from conv_tasnet_causal import ConvTasNet
+import os
 
 print("Torch is available: ", torch.cuda.is_available())
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -30,15 +31,20 @@ batch_size = 1
 # sr = 2000
 j = 0
 
+blackhole_path = os.getenv('BLACKHOLE')
+
+if not blackhole_path:
+    raise EnvironmentError("The environment variable $BLACKHOLE is not set.")
+
+overfit_idx = 1
+dataset_TRN = EarsDataset(data_dir=os.path.join(blackhole_path, "EARS-WHAM"), subset = 'train', normalize = False, max_samples=1)
+train_loader = ConvTasNetDataLoader(dataset_TRN, batch_size=batch_size, shuffle=True)
+dataset_VAL = EarsDataset(data_dir=os.path.join(blackhole_path, "EARS-WHAM"), subset = 'valid', normalize = False, max_samples=1)
+val_loader = ConvTasNetDataLoader(dataset_VAL, batch_size=batch_size, shuffle=True)
+
 # All of this should be preloaded in, not lazy. Laziness is time consuming here.
 # If laze then should save outputs! in memory??
 # ALso check if .compile is actually faster...
-dataset_TRN = EarsDataset(data_dir="/dtu/blackhole/0b/187019/EARS-WHAM", subset = 'train', normalize = False)
-print(len(dataset_TRN))
-train_loader = ConvTasNetDataLoader(dataset_TRN, batch_size=batch_size, shuffle=True)
-dataset_VAL = EarsDataset(data_dir="/dtu/blackhole/0b/187019/EARS-WHAM", subset = 'valid', normalize = False)
-print(len(dataset_VAL))
-val_loader = ConvTasNetDataLoader(dataset_VAL, batch_size=batch_size, shuffle=True)
 
 print("Dataloader imported")
 
@@ -66,7 +72,7 @@ alpha = 0.5
 lr = 1e-3
 epochs = 200
 
-logger = NeptuneLogger()
+logger = NeptuneLogger(test=True)
 teacher_optimizer = torch.optim.Adam(teacher.parameters())
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(teacher_optimizer, mode='min', factor = 0.5, patience = 3)
 
@@ -107,19 +113,19 @@ def forward_and_back(inputs, labels):
     teacher.train()
     teacher_optimizer.zero_grad() 
     clean_sound_teacher_output = teacher(inputs)[:, 0:1, :]
-    loss = -loss_func.compute_loss(clean_sound_teacher_output, labels)
+    loss = -loss_func.sisnr(clean_sound_teacher_output, labels)
     loss.backward()
     teacher_optimizer.step()
-    return loss, clean_sound_teacher_output 
+    return loss, clean_sound_teacher_output
 
-for i in range(epochs):
+for i in tqdm(range(epochs)):
     start_time = time.time()
     losses = []
-    for batch in train_loader:
+    for batch in tqdm(train_loader, desc=f"Epoch {i}"):
         j += 1
         batched_inputs, batched_labels = batch
-        inputs = batched_inputs[:, :, :]
-        labels = batched_labels[:, :, :]
+        inputs = batched_inputs[:, :, :16000]
+        labels = batched_labels[:, :, :16000]
         inputs, labels = inputs.to(device), labels.to(device)
 
         loss, clean_sound_teacher_output = forward_and_back(inputs, labels)
@@ -136,12 +142,12 @@ for i in range(epochs):
     logger.log_metric("epoch_time", time.time() - start_time) 
     save_to_wav(clean_sound_teacher_output[0:1, 0:1, :].cpu().detach().numpy(), output_filename="teacher_train_clean.wav")
     save_to_wav(labels[0:1, 0:1, :].cpu().detach().numpy(), output_filename="train_true_label.wav")
-    logger.log_custom_soundfile("teacher_train_clean.wav", f"train/teacher_clean_index{i}.wav")
-    logger.log_custom_soundfile("train_true_label.wav", "train/true_label.wav")
+    #logger.log_custom_soundfile("teacher_train_clean.wav", f"train/teacher_clean_index{i}.wav")
+    #logger.log_custom_soundfile("train_true_label.wav", "train/true_label.wav")
 
-    val_loss, val_loss2 = eval()
-    scheduler.step(val_loss)
-    logger.log_metric("val_loss_sisnr", val_loss)
-    logger.log_metric("val_loss_old_loss", val_loss2)
-    torch.save(teacher.state_dict(), "teacher.pth")
-    logger.log_model("teacher.pth", "artifacts/teacher_latest.pth")
+    #val_loss, val_loss2 = eval()
+    #scheduler.step(val_loss)
+    #logger.log_metric("val_loss_sisnr", val_loss)
+    #logger.log_metric("val_loss_old_loss", val_loss2)
+    #torch.save(teacher.state_dict(), "teacher.pth")
+    #logger.log_model("teacher.pth", "artifacts/teacher_latest.pth")

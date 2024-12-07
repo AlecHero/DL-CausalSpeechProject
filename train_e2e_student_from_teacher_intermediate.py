@@ -79,7 +79,7 @@ alpha = 0.5
 lr = 1e-3
 epochs = 200
 
-logger = NeptuneLogger()
+logger = NeptuneLogger(test=True)
 student_optimizer = torch.optim.Adam(student.parameters())
 teacher_optimizer = torch.optim.Adam(teacher.parameters())
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(teacher_optimizer, mode='min', factor = 0.5, patience = 3)
@@ -156,19 +156,20 @@ def forward_and_back(inputs, labels):
     
     return student_loss, student_out, teacher_loss
 
-for i in range(epochs):
+for i in tqdm(range(epochs)):
     start_time = time.time()
     losses = []
     for batch in train_loader:
         j += 1
         batched_inputs, batched_labels = batch
-        inputs = batched_inputs[:, :, :]
-        labels = batched_labels[:, :, :]
+        inputs = batched_inputs[:, :, :16000]
+        labels = batched_labels[:, :, :16000]
         inputs, labels = inputs.to(device), labels.to(device)
 
         loss, clean_sound_student_output, teacher_loss = forward_and_back(inputs, labels)
         losses.append(loss.item())
-        if j % 1000 == 0:
+        if True:
+        #if j % 1000 == 0:
             print(f"at {j} out of {len(train_loader)}")
             avg_loss = sum(losses)/len(losses)
             losses = []
