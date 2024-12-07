@@ -127,7 +127,7 @@ def eval_teacher():
             inputs, labels = inputs.to(device), labels.to(device)
 
             clean_sound_teacher_output = teacher(inputs)[:, 0:1, :]
-            loss = -loss_func.sisnr(clean_sound_teacher_output, labels)
+            loss = -loss_func.compute_loss(clean_sound_teacher_output, labels)
             losses.append(loss)
     return sum(losses)/len(losses)
 

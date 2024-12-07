@@ -104,7 +104,7 @@ def forward_and_back(inputs, labels):
     teacher.train()
     teacher_optimizer.zero_grad() 
     clean_sound_teacher_output = teacher(inputs)[:, 0:1, :]
-    loss = -loss_func.sisnr(clean_sound_teacher_output, labels)
+    loss = -loss_func.compute_loss(clean_sound_teacher_output, labels)
     loss.backward()
     teacher_optimizer.step()
     return loss, clean_sound_teacher_output 
