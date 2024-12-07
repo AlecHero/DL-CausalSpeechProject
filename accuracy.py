@@ -1,5 +1,6 @@
 from load_models import get_model_predictions_and_data, get_train_dataset
 
+import torch
 from torchmetrics.audio import SignalNoiseRatio, SignalDistortionRatio, ScaleInvariantSignalDistortionRatio
 from Dataloader.Dataloader import EarsDataset
 from tqdm import tqdm
@@ -25,7 +26,7 @@ def compute_metrics(results, save_path=None):
         si_sdr_scores = ScaleInvariantSignalDistortionRatio()(inputs, outputs)
         baseline_scores = [snr_scores, sdr_scores, si_sdr_scores]
         
-        num_models = predictions.shape[0]
+        num_models = len(predictions)
         prediction_scores = [0]*num_models
         for i in range(num_models):
             pred_snr_scores = SignalNoiseRatio()(inputs, predictions[i])
@@ -38,19 +39,22 @@ def compute_metrics(results, save_path=None):
         prediction_metrics.append(prediction_scores)
     
     if save_path:
-        import json
-        with open(save_path + "\metrics.json", "w") as f:
-            json.dump([baseline_metrics, prediction_metrics], f, indent=4)
+        torch.save({
+            "baseline_metrics": baseline_metrics,
+            "prediction_metrics": prediction_metrics
+        }, save_path)
     
     return baseline_metrics, prediction_metrics
 
 if __name__ == "__main__":
+    datapoints = 500
     results = get_model_predictions_and_data(
         mock = False,
         save_memory = True,
-        datapoints = 5,
+        datapoints = datapoints,
         deterministic = False
     )
     
-    save_path = "C:\Users\alexa\Documents\Github\DL-CausalSpeechProject\Plots\sdr_snr"
+    save_path = r"/zhome/f8/2/187151/DL-CausalSpeechProject/Plots/SNR_SDR"
+    save_path = save_path + f"/metrics{datapoints}.pt"
     compute_metrics(results, save_path=save_path)
