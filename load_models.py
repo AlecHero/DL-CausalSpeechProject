@@ -74,8 +74,8 @@ def get_model_predictions_and_data(
     result = []
     for i in range(datapoints):
         inputs, outputs = dataset_VAL[indexes[i]]
-        min_len = min(len(inputs), len(outputs))
-        inputs, outputs = inputs[:, :, :min_len], outputs[:, :, :min_len]
+        # min_len = min(len(inputs), len(outputs))
+        # inputs, outputs = inputs[..., :min_len], outputs[..., :min_len]
         inputs.unsqueeze_(0) 
         outputs.unsqueeze_(0)
         if save_memory:

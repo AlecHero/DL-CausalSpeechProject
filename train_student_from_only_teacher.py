@@ -122,8 +122,8 @@ def eval():
             labels = labels.squeeze(0)
             inputs, labels = inputs.to(device), labels.to(device)
 
-            student_output = student(inputs)[0].unsqueeze(0)
-            loss = -loss_func.compute_loss(student_output, labels)
+            clean_sound_student_output = student(inputs)[:, 0:1, :]
+            loss = -loss_func.compute_loss(clean_sound_student_output, labels)
             losses.append(loss)
     return sum(losses)/len(losses)
 
@@ -134,9 +134,7 @@ def forward_and_back(inputs, labels):
     student_optimizer.zero_grad()
     with torch.no_grad():
         teacher_out = teacher(inputs)[:, 0:1, :]
-    inputs = inputs.squeeze(0)
-    teacher_out = teacher_out.squeeze(0)
-    student_output = student(inputs)[0].unsqueeze(0)
+    student_output = student(inputs)[:, 0:1, :]
     loss = -loss_func.compute_loss(student_output, teacher_out)
     loss.backward()
     student_optimizer.step()
