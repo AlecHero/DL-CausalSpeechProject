@@ -5,6 +5,7 @@ import os
 def save_to_wav(data, sample_rate=16000, output_filename="output.wav"):
     # Make sure data is in the expected shape
     if len(data.shape) != 3 or data.shape[0] != 1 or data.shape[1] != 1:
+        print(data.shape)
         raise ValueError("Input data must have shape [1, 1, length]")
     
     # Extract the sequence of amplitudes
