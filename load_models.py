@@ -5,6 +5,7 @@ from conv_tasnet_causal import ConvTasNet
 import torch
 from tqdm import tqdm
 import random
+from wav_generator import save_to_wav
 
 num_sources = 2
 enc_kernel_size = 16
@@ -24,7 +25,7 @@ def get_train_dataset(mock: bool = False):
     if mock:
         dataset_VAL = [[torch.rand(1, 149158), torch.rand(1, 149158)]]
     else:
-        dataset_VAL = EarsDataset(data_dir=data_path, subset = 'valid', normalize = False)
+        dataset_VAL = EarsDataset(data_dir=data_path, subset = 'train', normalize = False)
     print("Dataset loaded")
     return dataset_VAL
 
@@ -85,6 +86,10 @@ def get_model_predictions_and_data(
             for model in tqdm(models, desc = f"Getting model predictions for {i}'th datapoint"):
                 predictions, _ = model(inputs)
                 predictions = predictions[:, 0:1, :] # Only the clean part
+                rms = torch.sqrt(torch.mean(predictions**2))
+                desired_rms = 0.03  # for example
+                predictions = predictions * (desired_rms / (rms + 1e-9))
+                predictions = torch.clamp(predictions, -0.9, 0.9)
                 model_outputs.append(predictions)
                 assert predictions.shape == outputs.shape, f"Predictions and outputs have different shapes: {predictions.shape} and {outputs.shape}"
                 assert predictions.shape == inputs.shape, f"Predictions and inputs have different shapes: {predictions.shape} and {inputs.shape}"
@@ -94,10 +99,14 @@ def get_model_predictions_and_data(
 
 if __name__ == "__main__":
     # Settings when running on bsub should then be mock = False, save_memory = False, deterministic = _____ , datapoints > 1
-    results = get_model_predictions_and_data(mock = False, save_memory = True, datapoints = 2, deterministic = False)
+    results = get_model_predictions_and_data(mock = False, save_memory = True, datapoints = 1, deterministic = True)
     
     ## TO USE:
-    # for (predictions, inputs, outputs) in results:
-    #     for prediction in predictions:
-    #         do_something(prediction, inputs, outputs) # which all have the same shape
+    for (predictions, inputs, outputs) in results:
+        for i, prediction in enumerate(predictions):
+            save_to_wav(prediction[0:1, :].cpu().detach().numpy(), output_filename=f"prediction_{i}.wav")
+        inputs = inputs / (torch.max(torch.abs(inputs)) + 1e-9)
+        outputs = outputs / (torch.max(torch.abs(outputs)) + 1e-9)
+        save_to_wav(inputs[0:1, :].cpu().detach().numpy(), output_filename=f"prediction_input.wav")
+        save_to_wav(outputs[0:1, :].cpu().detach().numpy(), output_filename=f"prediction_output.wav")
 
