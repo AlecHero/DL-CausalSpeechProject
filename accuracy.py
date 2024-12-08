@@ -1,4 +1,4 @@
-from load_models import get_model_predictions_and_data, get_train_dataset
+from load_models import get_model_predictions_and_data
 
 import torch
 from torchmetrics.audio import SignalNoiseRatio, SignalDistortionRatio, ScaleInvariantSignalDistortionRatio
@@ -47,7 +47,7 @@ def compute_metrics(results, save_path=None):
     return baseline_metrics, prediction_metrics
 
 if __name__ == "__main__":
-    datapoints = 500
+    datapoints = 632
     results = get_model_predictions_and_data(
         mock = False,
         save_memory = True,
