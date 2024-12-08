@@ -27,34 +27,34 @@ class ConvBlock(torch.nn.Module):
         io_channels: int,
         hidden_channels: int,
         kernel_size: int,
-        # padding: int,
         dilation: int = 1,
         no_residual: bool = False,
         causal: bool = True,
     ):
         super().__init__()
         
-        # padding = (kernel_size - 1) * dilation if causal else (kernel_size - 1) // 2  # causal and non causal padding
+        self.causal = causal
+        self.padding = (kernel_size - 1) * dilation if self.causal else (kernel_size - 1) // 2  # causal and non causal padding
         
-        self.conv1d_1 = torch.nn.Conv1d(in_channels=io_channels, out_channels=hidden_channels, kernel_size=1),
-        self.prelu1 = torch.nn.PReLU(),
-        self.norm1 = torch.nn.GroupNorm(num_groups=1, num_channels=hidden_channels, eps=1e-08),
+        self.conv1d_1 = torch.nn.Conv1d(in_channels=io_channels, out_channels=hidden_channels, kernel_size=1)
+        self.prelu1 = torch.nn.PReLU()
+        self.norm1 = torch.nn.GroupNorm(num_groups=1, num_channels=hidden_channels, eps=1e-08)
         self.conv1d_2 = torch.nn.Conv1d(
             in_channels=hidden_channels,
             out_channels=hidden_channels,
             kernel_size=kernel_size,
-            padding=padding,
+            padding=self.padding,
             dilation=dilation,
             groups=hidden_channels,
-        ),
-        self.prelu2 = torch.nn.PReLU(),
-        self.norm2 = torch.nn.GroupNorm(num_groups=1, num_channels=hidden_channels, eps=1e-08),
-        self.conv1d_3 = torch.nn.Conv1d(in_channels=hidden_channels, out_channels=io_channels, 1, bias=True)
+        )
+        self.prelu2 = torch.nn.PReLU()
+        self.norm2 = torch.nn.GroupNorm(num_groups=1, num_channels=hidden_channels, eps=1e-08)
+        self.conv1d_3 = torch.nn.Conv1d(in_channels=hidden_channels, out_channels=io_channels, kernel_size=1, bias=True)
         
-        self.res_out = (None if no_residual else torch.nn.Conv1d(in_channels=hidden_channels, out_channels=io_channels, kernel_size=1))
-        self.skip_out = torch.nn.Conv1d(in_channels=hidden_channels, out_channels=io_channels, kernel_size=1)
+        self.res_out = (None if no_residual else torch.nn.Conv1d(in_channels=io_channels, out_channels=io_channels, kernel_size=1))
+        self.skip_out = torch.nn.Conv1d(in_channels=io_channels, out_channels=io_channels, kernel_size=1)
 
-    def forward(self, c: torch.Tensor) -> Tuple[Optional[torch.Tensor], torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> Tuple[Optional[torch.Tensor], torch.Tensor]:
         c = self.conv1d_1(x)
         c = self.prelu1(c)
         c = self.norm1(c)

@@ -18,7 +18,7 @@ import numpy as np
 # netværket til at processere input.
 
 def compute_metrics(results, save_path=None):
-    baseline_metrics, prediction_metrics = [], []    
+    baseline_metrics, prediction_metrics = [], []
     
     for (predictions, inputs, outputs) in results:
         snr_scores = SignalNoiseRatio()(inputs, outputs)
