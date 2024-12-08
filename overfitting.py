@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torchaudio
-from conv_tasnet import ConvTasNet
+from conv_tasnet_causal import ConvTasNet
 from tqdm import tqdm
 from eval import Loss
 from neptuneLogger import NeptuneLogger
@@ -59,7 +59,7 @@ print("Getitem worked")
 #         msk_activate="sigmoid"
 # )
 
-teacher = ConvTasNet(
+teacher = torchaudio.models.conv_tasnet.ConvTasNet(
         num_sources=num_sources,
         enc_kernel_size=enc_kernel_size,  # Reduced from 20 to avoid size mismatch
         enc_num_feats=enc_num_feats,
@@ -107,7 +107,7 @@ for i in tqdm(range(epochs), desc="Training..."):
     clean_sound_teacher_output = teacher_output[:, 0:1, :]
     # target = alpha * soft_target + (1 - alpha) * labels
     # outputs = model(inputs)
-    loss = loss_func.compute_loss(clean_sound_teacher_output, labels)
+    loss = loss_func.sisnr(clean_sound_teacher_output, labels)
     
     # print(f"Iteration {i}: Loss = {loss.item()}")
     loss.backward()
