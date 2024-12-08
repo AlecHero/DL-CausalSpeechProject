@@ -63,8 +63,8 @@ class ConvBlock(torch.nn.Module):
         if self.causal: c = c[..., :-self.padding]
         c = self.conv1d_3(c)
         
-        residual = self.res_out(x) if self.res_out is not None else None
-        skip_out = self.skip_out(x)
+        residual = self.res_out(c) if self.res_out is not None else None
+        skip_out = self.skip_out(c)
         
         return residual, skip_out
 
