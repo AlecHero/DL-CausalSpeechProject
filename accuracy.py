@@ -29,9 +29,9 @@ def compute_metrics(results, save_path=None):
         num_models = len(predictions)
         prediction_scores = [0]*num_models
         for i in range(num_models):
-            pred_snr_scores = SignalNoiseRatio()(predictions[i], outputs)
-            pred_sdr_scores = SignalDistortionRatio()(predictions[i], outputs)
-            pred_si_sdr_scores = ScaleInvariantSignalDistortionRatio()(predictions[i], outputs)
+            pred_snr_scores = SignalNoiseRatio()(predictions[i][0], outputs)
+            pred_sdr_scores = SignalDistortionRatio()(predictions[i][0], outputs)
+            pred_si_sdr_scores = ScaleInvariantSignalDistortionRatio()(predictions[i][0], outputs)
             
             prediction_scores[i] = [pred_snr_scores, pred_sdr_scores, pred_si_sdr_scores]
         
@@ -49,7 +49,7 @@ def compute_metrics(results, save_path=None):
 
 ### PLOTTING
 metric_names = ['SNR', 'SDR', 'SI-SDR']
-model_names = ["student_only_labels", "student_only_teacher", "student_partly_teacher"]
+model_names = ["student_only_labels", "student_only_teacher", "student_partly_teacher", "e2e_student_from_teacher", "teacher"]
 num_metrics = 3
 
 def plot_metrics(metrics_path, save_path=None):
@@ -116,7 +116,7 @@ def get_mean_conf(data_path, printer=True):
 
     for model_idx in range(num_models):
         for metric_idx in range(num_metrics):
-            data = np.asarray(baseline_metrics[:, metric_idx] - prediction_metrics[:, metric_idx, model_idx])
+            data = np.asarray(prediction_metrics[:, metric_idx, model_idx] - baseline_metrics[:, metric_idx])
             mean = np.mean(data)
             margin = t.ppf((1 + 0.95) / 2, n-1) * np.std(data, ddof=1) / np.sqrt(n)
             
@@ -130,7 +130,7 @@ def get_mean_conf(data_path, printer=True):
     return means, conf_intervals
 
 
-def plot_conf(data_path):
+def plot_conf(data_path, save_path):
     import numpy as np
 
     means, conf_intervals = get_mean_conf(data_path, printer=False)
@@ -148,32 +148,35 @@ def plot_conf(data_path):
     fig, ax = plt.subplots(figsize=(10, 6))
 
     for model_idx in range(num_models):
-        ax.errorbar(x, means[model_idx], yerr=conf_intervals[model_idx], label=f"Model {model_idx + 1}", capsize=5, fmt='o')
+        ax.errorbar(x, means[model_idx], yerr=conf_intervals[model_idx], label=model_names[model_idx], capsize=5, fmt='o')
 
     # Customize plot
     ax.set_title("Confidence Intervals for Metrics by Model")
     ax.set_xlabel("Metric Index")
     ax.set_ylabel("Mean Difference ± CI")
     ax.legend(title="Models")
-    plt.xticks(x, [f"Metric {i+1}" for i in x])  # Optional: label metrics
+    plt.xticks(x, [metric_names[i] for i in x])  # Optional: label metrics
     plt.grid(True, linestyle='--', alpha=0.7)
 
     plt.tight_layout()
     plt.show()
+    if save_path: plt.savefig(save_path + r"\improvement_confidence")
 
 
 if __name__ == "__main__":
-    # datapoints = 632
-    # results = get_model_predictions_and_data(
-    #     mock = False,
-    #     save_memory = True,
-    #     datapoints = datapoints,
-    #     deterministic = False
-    # )
+    datapoints = 632
+    results = get_model_predictions_and_data(
+        mock = False,
+        save_memory = True,
+        datapoints = datapoints,
+        deterministic = False
+    )
     
     save_path = r"/zhome/f8/2/187151/DL-CausalSpeechProject/Plots/SNR_SDR"
-    # save_path = save_path + f"/metrics{datapoints}.pt"
-    # compute_metrics(results, save_path=save_path)
+    # save_path = r"C:\Users\alexa\Documents\GitHub\DL-CausalSpeechProject\Plots\SNR_SDR"
+    save_path = save_path + f"/metrics{datapoints}_save_memory.pt"
+    compute_metrics(results, save_path=save_path)
     
-    metrics_path = save_path + "/metrics632.pt"
-    plot_metrics(metrics_path, save_path)
+    # metrics_path = save_path + "\metrics632.pt"
+    # plot_metrics(metrics_path, save_path)
+    # plot_conf(metrics_path, save_path)
