@@ -87,7 +87,7 @@ def get_model_predictions_and_data(
                 predictions, _ = model(inputs)
                 predictions = predictions[:, 0:1, :] # Only the clean part
                 rms = torch.sqrt(torch.mean(predictions**2))
-                desired_rms = 0.03  # for example
+                desired_rms = 0.03  # can change this, not a constant
                 predictions = predictions * (desired_rms / (rms + 1e-9))
                 predictions = torch.clamp(predictions, -0.9, 0.9)
                 model_outputs.append(predictions)
