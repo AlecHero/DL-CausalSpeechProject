@@ -11,6 +11,41 @@ from itertools import permutations
 
 # https://github.com/JusperLee/Conv-TasNet/blob/master/Conv-TasNet_lightning/train.py
 
+def sisdr_to_sdr(sisdr, scaling_factor=1.0):
+    """
+    Estimate SDR from SI-SDR given an assumed scaling factor.
+
+    Parameters:
+    sisdr (float): The SI-SDR value in dB.
+    scaling_factor (float): The ratio of the estimated signal's energy scaling
+                            relative to the target. If 1.0, we assume they are 
+                            perfectly matched in scale.
+
+    Returns:
+    float: An estimated SDR in dB.
+    """
+    # If scaling_factor = 1, SI-SDR ~ SDR
+    # For a non-unity scaling_factor, a theoretical adjustment could be:
+    # SDR ≈ SI-SDR + 20 * log10(scaling_factor)
+    # But this requires knowing the scaling_factor beforehand.
+    
+    import math
+    if scaling_factor <= 0:
+        raise ValueError("Scaling factor must be positive.")
+
+    # Apply the approximate correction for scaling if known
+    correction = 20 * math.log10(scaling_factor) if scaling_factor != 1.0 else 0
+    sdr = sisdr + correction
+    return sdr
+
+# Example usage:
+# If we assume no scaling difference:
+
+# If we somehow knew the estimated signal was scaled by a factor of 2:
+# estimated_sdr = sisdr_to_sdr(10.0, scaling_factor=2.0)
+# print("Estimated SDR with scaling:", estimated_sdr, "dB")
+
+
 class Loss(object):
     def __init__(self):
         super(Loss, self).__init__()
@@ -37,6 +72,25 @@ class Loss(object):
             x_zm * s_zm, dim=-1,
             keepdim=True) * s_zm / (l2norm(s_zm, keepdim=True)**2 + eps)
         return 20 * torch.log10(eps + l2norm(t) / (l2norm(x_zm - t) + eps))
+
+    def snr(self, x, s, eps=1e-8):
+        """
+        Arguments:
+        x: separated signal, N x S tensor 
+        s: reference signal, N x S tensor
+        Return:
+        snr: N tensor
+        """
+        def l2norm(mat, keepdim=False):
+            return torch.norm(mat, dim=-1, keepdim=keepdim)
+
+        if x.shape != s.shape:
+            raise RuntimeError(
+                "Dimention mismatch when calculate snr, {} vs {}".format(
+                    x.shape, s.shape))
+
+        noise = x - s
+        return 20 * torch.log10(eps + l2norm(s) / (l2norm(noise) + eps))
 
     def compute_loss(self, ests, refs):
 
@@ -106,3 +160,5 @@ if __name__ == "__main__":
     egs = torch.randn(4,320)
     loss = Loss()
     print(loss.compute_loss(ests, egs))
+    print(loss.sisnr(ests, egs))
+    print([sisdr_to_sdr(est, scaling_factor=1.2) for est in loss.sisnr(ests, egs)])

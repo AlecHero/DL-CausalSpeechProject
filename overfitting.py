@@ -11,7 +11,7 @@ from wav_generator import save_to_wav
 from Dataloader.Dataloader import EarsDataset
 from asteroid_loss import PairwiseNegSDR
 import os
-from torchmetrics.audio import SignalNoiseRatio
+from torchmetrics.audio import ScaleInvariantSignalDistortionRatio, SignalDistortionRatio
 from criterion import cal_loss
 
 ## CONSTANTS
@@ -37,8 +37,8 @@ dataset_TRN = EarsDataset(data_dir=os.path.join(blackhole_path, "EARS-WHAM"), su
 print("Dataset imported")
 inputs, labels = dataset_TRN.__getitem__(overfit_idx)
 
-print("SNR loss inputs vs labels", SignalNoiseRatio(zero_mean=False)(inputs, labels))
-print("SNR loss labels vs labels", SignalNoiseRatio(zero_mean=False)(labels, labels))
+print("SNR loss inputs vs labels", Loss().snr(inputs, labels))
+print("SNR loss labels vs labels", Loss().snr(labels, labels))
 
 inputs = inputs.unsqueeze(0)[:, :, :16000]
 labels = labels.unsqueeze(0)[:, :, :16000]
@@ -83,7 +83,7 @@ alpha = 0.5
 lr = 1e-3
 epochs = 2000
 
-logger = NeptuneLogger()
+logger = NeptuneLogger(test=True)
 # optimizer = torch.optim.Adam(model.parameters())
 teacher_optim = torch.optim.Adam(teacher.parameters(), lr = lr)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(teacher_optim, mode='min', factor = 0.5, patience = 100)
@@ -117,8 +117,8 @@ for i in tqdm(range(epochs), desc="Training..."):
     # Ensure loss is a scalar by taking the mean
     
     # loss = cal_loss(labels, clean_sound_teacher_output, torch.tensor([16000]))
-    loss = loss_func.sisnr(labels, clean_sound_teacher_output)
-    logger.log_metric("SNR", SignalNoiseRatio(zero_mean=True)(clean_sound_teacher_output, labels))
+    loss = -loss_func.sisnr(labels, clean_sound_teacher_output)
+    logger.log_metric("SNR", loss_func.snr(clean_sound_teacher_output, labels))
     
     loss.backward()
     teacher_optim.step()
