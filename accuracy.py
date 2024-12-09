@@ -29,9 +29,9 @@ def compute_metrics(results, save_path=None):
         num_models = len(predictions)
         prediction_scores = [0]*num_models
         for i in range(num_models):
-            pred_snr_scores = SignalNoiseRatio()(inputs, predictions[i])
-            pred_sdr_scores = SignalDistortionRatio()(inputs, predictions[i])
-            pred_si_sdr_scores = ScaleInvariantSignalDistortionRatio()(inputs, predictions[i])
+            pred_snr_scores = SignalNoiseRatio()(predictions[i], outputs)
+            pred_sdr_scores = SignalDistortionRatio()(predictions[i], outputs)
+            pred_si_sdr_scores = ScaleInvariantSignalDistortionRatio()(predictions[i], outputs)
             
             prediction_scores[i] = [pred_snr_scores, pred_sdr_scores, pred_si_sdr_scores]
         
