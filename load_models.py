@@ -33,7 +33,7 @@ def get_train_dataset(mock: bool = False):
 
 def load_models():
     models_load_strings = ["models/student_only_labels_cpu.pth", "models/student_only_teacher_cpu.pth", "models/student_partly_teacher_cpu.pth",
-                           "models/student_e2e.pth", "models/teacher_full_training.pth"]
+                           "models/student_e2e.pth"]
     models = []
     for model_load_string in tqdm(models_load_strings, desc = "Loading models..."):
         model = ConvTasNet(
