@@ -1,10 +1,7 @@
 from load_models import get_model_predictions_and_data
 import torch
 
-
-
-
-def save_results(n_datapoints, save_path):
+def save_results(n_datapoints, save_path=None):
     datapoints = n_datapoints
     results = get_model_predictions_and_data(
         mock = False,
@@ -12,9 +9,11 @@ def save_results(n_datapoints, save_path):
         datapoints = datapoints,
         deterministic = False
     )
-
     if save_path: torch.save({ "results": results }, save_path)
+
+
+
 
 if __name__ == "__main__":
     save_path = "/zhome/f8/2/187151/DL-CausalSpeechProject/results.pt"
-    save_results
+    save_results(n_datapoints=632, save_path=save_path)
