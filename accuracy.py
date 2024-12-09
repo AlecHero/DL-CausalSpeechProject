@@ -93,7 +93,7 @@ def plot_metrics(metrics_path, save_path=None):
         for model_idx in range(num_metrics):
             base = baseline_metrics[:, metric_idx]
             pred = prediction_metrics[:, :, model_idx][:, metric_idx]
-            improvement = base - pred
+            improvement = pred - base
             ax.plot(improvement, label=model_names[model_idx])
             ax.set_xlim(0, 100)
             ax.legend()
@@ -163,14 +163,17 @@ def plot_conf(data_path):
 
 
 if __name__ == "__main__":
-    datapoints = 632
-    results = get_model_predictions_and_data(
-        mock = False,
-        save_memory = True,
-        datapoints = datapoints,
-        deterministic = False
-    )
+    # datapoints = 632
+    # results = get_model_predictions_and_data(
+    #     mock = False,
+    #     save_memory = True,
+    #     datapoints = datapoints,
+    #     deterministic = False
+    # )
     
     save_path = r"/zhome/f8/2/187151/DL-CausalSpeechProject/Plots/SNR_SDR"
-    save_path = save_path + f"/metrics{datapoints}.pt"
-    compute_metrics(results, save_path=save_path)
+    # save_path = save_path + f"/metrics{datapoints}.pt"
+    # compute_metrics(results, save_path=save_path)
+    
+    metrics_path = save_path + "/metrics632.pt"
+    plot_metrics(metrics_path, save_path)
