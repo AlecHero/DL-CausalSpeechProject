@@ -9,7 +9,10 @@ from eval import Loss
 from neptuneLogger import NeptuneLogger
 from wav_generator import save_to_wav
 from Dataloader.Dataloader import EarsDataset
+from asteroid_loss import PairwiseNegSDR
 import os
+from torchmetrics.audio import SignalNoiseRatio
+from criterion import cal_loss
 
 ## CONSTANTS
 num_sources = 2
@@ -33,9 +36,12 @@ overfit_idx = 1
 dataset_TRN = EarsDataset(data_dir=os.path.join(blackhole_path, "EARS-WHAM"), subset = 'train', normalize = False, max_samples=10)
 print("Dataset imported")
 inputs, labels = dataset_TRN.__getitem__(overfit_idx)
+
+print("SNR loss inputs vs labels", SignalNoiseRatio(zero_mean=False)(inputs, labels))
+print("SNR loss labels vs labels", SignalNoiseRatio(zero_mean=False)(labels, labels))
+
 inputs = inputs.unsqueeze(0)[:, :, :16000]
 labels = labels.unsqueeze(0)[:, :, :16000]
-
 # save_to_wav(inputs[:, :, :].detach().numpy(), output_filename="test_inputs.wav")
 # save_to_wav(labels[:, :, :].detach().numpy(), output_filename="test_labels.wav")
 # print(inputs.unsqueeze(0).shape)
@@ -79,8 +85,8 @@ epochs = 2000
 
 logger = NeptuneLogger()
 # optimizer = torch.optim.Adam(model.parameters())
-teacher_optim = torch.optim.Adam(teacher.parameters())
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(teacher_optim, mode='min', factor = 0.5, patience = 50)
+teacher_optim = torch.optim.Adam(teacher.parameters(), lr = lr)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(teacher_optim, mode='min', factor = 0.5, patience = 100)
 
 print("Logger started")
 
@@ -90,10 +96,11 @@ logger.log_metadata({
     "scheduler": "Reduce on Plateau",
     "epoch": epochs,
     "batch_size": batch_size,
-    "desc": "Only clean soundfile loss calc, only teacher training, ReduceLROnPlateau with patience=50"
+    "desc": "loss with noise "
 })
 
 loss_func = Loss()
+# loss_func = PairwiseNegSDR()
 
 # scaler = torch.amp.GradScaler()
 
@@ -102,31 +109,37 @@ loss_func = Loss()
 
 for i in tqdm(range(epochs), desc="Training..."):
     teacher_optim.zero_grad()
-    # with torch.amp.autocast("mps"):
     teacher_output = teacher(inputs)
     clean_sound_teacher_output = teacher_output[:, 0:1, :]
-    # target = alpha * soft_target + (1 - alpha) * labels
-    # outputs = model(inputs)
-    loss = loss_func.sisnr(clean_sound_teacher_output, labels)
+    # noise = inputs - labels
+    # labels_with_noise = torch.cat((labels, noise), dim=1)
     
-    # print(f"Iteration {i}: Loss = {loss.item()}")
+    # Ensure loss is a scalar by taking the mean
+    
+    # loss = cal_loss(labels, clean_sound_teacher_output, torch.tensor([16000]))
+    loss = loss_func.sisnr(labels, clean_sound_teacher_output)
+    logger.log_metric("SNR", SignalNoiseRatio(zero_mean=True)(clean_sound_teacher_output, labels))
+    
     loss.backward()
     teacher_optim.step()
-    # optimizer.step()
     scheduler.step(loss.item())
-
+    
     logger.log_metric("train_loss", loss.item())
     for param_group in teacher_optim.param_groups:
         current_lr = param_group['lr']
     logger.log_metric("lr", current_lr)
 
     if i % 20 == 0:
-
         # save_to_wav(teacher_output[0:1, 0:1, :].detach().numpy(), output_filename="train_sound_1.wav")
         # save_to_wav(teacher_output[0:1, 1:2, :].detach().numpy(), output_filename="train_sound_2.wav")
 
         # logger.log_train_soundfile("train_sound_1.wav", speaker=1, idx=i)
         # logger.log_train_soundfile("train_sound_2.wav", speaker=2, idx=i)
+
+        desired_rms = 0.03  # can change this, not a constant
+        rms = torch.sqrt(torch.mean(teacher_output**2))
+        teacher_output = teacher_output * (desired_rms / (rms + 1e-9))
+        teacher_output = torch.clamp(teacher_output, -0.9, 0.9)
 
         save_to_wav(teacher_output[0:1, 0:1, :].detach().numpy(), output_filename="teacher_train_clean.wav")
         save_to_wav(teacher_output[0:1, 1:2, :].detach().numpy(), output_filename="teacher_train_noicy.wav")
