@@ -12,6 +12,7 @@ def save_results(n_datapoints, save_path=None):
         datapoints = datapoints,
         deterministic = False
     )
+
     if save_path: torch.save({ "results": results }, save_path)
 
 
@@ -39,13 +40,13 @@ def sisnr(x, s, eps=1e-8):
     return 20 * torch.log10(eps + l2norm(t) / (l2norm(x_zm - t) + eps))
 
 
-def compute_loss(self, ests, refs):
+def compute_loss(ests, refs):
     from itertools import permutations
     
     def sisnr_loss(permute):
         # for one permute
         return sum(
-            [self.sisnr(ests[s], refs[t])
+            [sisnr(ests[s], refs[t])
                 for s, t in enumerate(permute)]) / len(permute)
 
     # P x N
@@ -81,7 +82,7 @@ def conf(data):
     return mean, margin
 
 def print_conf(baseline_metrics, prediction_metrics):
-    
+    num_models = 4
     for model_idx in range(num_models-1, -1, -1):
         mean, margin = conf(prediction_metrics[:, model_idx])
         print("{:<25} : {:.2f} ± {:.2f}".format(model_names[model_idx], round(mean, 2), round(margin, 2)))
@@ -91,5 +92,12 @@ def print_conf(baseline_metrics, prediction_metrics):
     print("{:<25} : {:.2f} ± {:.2f}".format("baseline", round(mean, 2), round(margin, 2)))
 
 if __name__ == "__main__":
-    save_path = "/zhome/f8/2/187151/DL-CausalSpeechProject/results.pt"
-    save_results(n_datapoints=632, save_path=save_path)
+    # save_path = "/zhome/f8/2/187151/DL-CausalSpeechProject/results.pt"
+    # save_results
+    
+    results_path = r"/zhome/f8/2/187151/DL-CausalSpeechProject/Plots/SNR_SDR/results.pt"
+    results = torch.load(results_path)["results"]
+
+    baseline_metrics, prediction_metrics = compute_metric(results, compute_loss)
+
+    print_conf(baseline_metrics, prediction_metrics)    
