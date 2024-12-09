@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torchaudio
-from conv_tasnet_causal2 import ConvTasNet
+from conv_tasnet import ConvTasNet
 from tqdm import tqdm
 from eval import Loss, Accuracy
 from neptuneLogger import NeptuneLogger
@@ -15,17 +15,6 @@ import time
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-## CONSTANTS
-N = 512  # enc_num_feats
-L = 16   # enc_kernel_size  
-B = 128  # msk_num_feats
-H = 512  # msk_num_hidden_feats
-P = 3    # msk_kernel_size
-X = 8    # msk_num_layers
-R = 3    # msk_num_stacks
-norm = "gln"
-num_spks = 2  # num_sources
-activate = "sigmoid"  # msk_activate
 batch_size = 1
 sr = 2000
 j = 0
@@ -54,17 +43,16 @@ val_loader = ConvTasNetDataLoader(dataset_VAL, batch_size=batch_size, shuffle=Tr
 print("Dataloader imported")
 
 student = torch.compile(ConvTasNet(
-        N=N,
-        L=L,
-        B=B,
-        H=H,
-        P=P,
-        X=X,
-        R=R,
-        norm=norm,
-        num_spks=num_spks,
-        activate=activate,
-        causal=True
+    num_sources=num_sources,
+    enc_kernel_size=enc_kernel_size,
+    enc_num_feats=enc_num_feats,
+    msk_kernel_size=msk_kernel_size,
+    msk_num_feats=msk_num_feats,
+    msk_num_hidden_feats=msk_num_hidden_feats,
+    msk_num_layers=msk_num_layers,
+    msk_num_stacks=msk_num_stacks,
+    msk_activate=msk_activate,
+    #causal=True
 ))
 
 teacher = torch.compile(torchaudio.models.conv_tasnet.ConvTasNet(
@@ -118,8 +106,6 @@ def eval():
             inputs, labels = batch
             inputs = inputs[:, :, :]
             labels = labels[:, :, :]
-            inputs = inputs.squeeze(0)
-            labels = labels.squeeze(0)
             inputs, labels = inputs.to(device), labels.to(device)
 
             clean_sound_student_output = student(inputs)[:, 0:1, :]
