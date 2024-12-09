@@ -86,7 +86,7 @@ def get_model_predictions_and_data(
     assert len(dataset_VAL) >= datapoints
     indexes = random.sample(range(len(dataset_VAL)), datapoints) if not deterministic else range(datapoints)
     result = []
-    for i in range(datapoints):
+    for i in tqdm(range(datapoints), desc = f"Getting model predictions for all datapoints"):
         inputs, outputs = dataset_VAL[indexes[i]]
         # min_len = min(len(inputs), len(outputs))
         # inputs, outputs = inputs[..., :min_len], outputs[..., :min_len]
@@ -96,7 +96,7 @@ def get_model_predictions_and_data(
             inputs, outputs = inputs[:, :, :16000], outputs[:, :, :16000]
         model_outputs = []
         with torch.no_grad():
-            for model, model_load_string in tqdm(models, desc = f"Getting model predictions for {i}'th datapoint"):
+            for model, model_load_string in models:
                 predictions, _ = model(inputs)
                 predictions = predictions[:, 0:1, :] # Only the clean part
                 rms = torch.sqrt(torch.mean(predictions**2))

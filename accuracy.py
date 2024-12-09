@@ -1,4 +1,4 @@
-# from load_models import get_model_predictions_and_data
+from load_models import get_model_predictions_and_data
 
 import torch
 from torchmetrics.audio import SignalNoiseRatio, SignalDistortionRatio, ScaleInvariantSignalDistortionRatio
@@ -29,9 +29,9 @@ def compute_metrics(results, save_path=None):
         num_models = len(predictions)
         prediction_scores = [0]*num_models
         for i in range(num_models):
-            pred_snr_scores = SignalNoiseRatio()(predictions[i], outputs)
-            pred_sdr_scores = SignalDistortionRatio()(predictions[i], outputs)
-            pred_si_sdr_scores = ScaleInvariantSignalDistortionRatio()(predictions[i], outputs)
+            pred_snr_scores = SignalNoiseRatio()(predictions[i][0], outputs)
+            pred_sdr_scores = SignalDistortionRatio()(predictions[i][0], outputs)
+            pred_si_sdr_scores = ScaleInvariantSignalDistortionRatio()(predictions[i][0], outputs)
             
             prediction_scores[i] = [pred_snr_scores, pred_sdr_scores, pred_si_sdr_scores]
         
@@ -49,7 +49,7 @@ def compute_metrics(results, save_path=None):
 
 ### PLOTTING
 metric_names = ['SNR', 'SDR', 'SI-SDR']
-model_names = ["student_only_labels", "student_only_teacher", "student_partly_teacher"]
+model_names = ["student_only_labels", "student_only_teacher", "student_partly_teacher", "e2e_student_from_teacher", "teacher"]
 num_metrics = 3
 
 def plot_metrics(metrics_path, save_path=None):
@@ -164,19 +164,19 @@ def plot_conf(data_path, save_path):
 
 
 if __name__ == "__main__":
-    # datapoints = 632
-    # results = get_model_predictions_and_data(
-    #     mock = False,
-    #     save_memory = True,
-    #     datapoints = datapoints,
-    #     deterministic = False
-    # )
+    datapoints = 632
+    results = get_model_predictions_and_data(
+        mock = False,
+        save_memory = True,
+        datapoints = datapoints,
+        deterministic = False
+    )
     
-    # save_path = r"/zhome/f8/2/187151/DL-CausalSpeechProject/Plots/SNR_SDR"
-    save_path = r"C:\Users\alexa\Documents\GitHub\DL-CausalSpeechProject\Plots\SNR_SDR"
-    # save_path = save_path + f"/metrics{datapoints}.pt"
-    # compute_metrics(results, save_path=save_path)
+    save_path = r"/zhome/f8/2/187151/DL-CausalSpeechProject/Plots/SNR_SDR"
+    # save_path = r"C:\Users\alexa\Documents\GitHub\DL-CausalSpeechProject\Plots\SNR_SDR"
+    save_path = save_path + f"/metrics{datapoints}_save_memory.pt"
+    compute_metrics(results, save_path=save_path)
     
-    metrics_path = save_path + "\metrics632.pt"
+    # metrics_path = save_path + "\metrics632.pt"
     # plot_metrics(metrics_path, save_path)
-    plot_conf(metrics_path, save_path)
+    # plot_conf(metrics_path, save_path)
