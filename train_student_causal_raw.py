@@ -11,7 +11,8 @@ from wav_generator import save_to_wav
 from Dataloader.Dataloader import EarsDataset,ConvTasNetDataLoader
 import pickle
 import time
-from conv_tasnet_causal import ConvTasNet
+from conv_tasnet_causal_alt import ConvTasNet
+import os
 
 print("Torch is available: ", torch.cuda.is_available())
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
