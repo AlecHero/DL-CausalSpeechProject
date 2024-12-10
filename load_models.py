@@ -6,6 +6,7 @@ import torch
 from tqdm import tqdm
 import random
 from wav_generator import save_to_wav
+from typing import List
 
 num_sources = 2
 enc_kernel_size = 16
@@ -22,7 +23,7 @@ msk_activate = 'sigmoid'
 blackhole_path = os.getenv('BLACKHOLE')
 data_path = os.path.join(blackhole_path, "EARS-WHAM")
 
-def get_train_dataset(mock: bool = False):
+def get_val_dataset(mock: bool = False):
     print("Loading dataset...")
     if mock:
         dataset_VAL = [[torch.rand(1, 149158), torch.rand(1, 149158)]]
@@ -31,11 +32,12 @@ def get_train_dataset(mock: bool = False):
     print("Dataset loaded")
     return dataset_VAL
 
-def load_models():
-    models_load_strings = ["models/student_only_labels_cpu.pth", "models/student_only_teacher_cpu.pth", "models/student_partly_teacher_cpu.pth",
+def load_models(models_load_strings: Union[List[str], None] = None, device: str = 'cpu', causal: Union[List[bool], None] = None, save_intermediate_values: Union[List[bool], None] = None) -> List[tuple[ConvTasNet, str]]:
+    if models_load_strings is None:
+        models_load_strings = ["models/student_only_labels_cpu.pth", "models/student_only_teacher_cpu.pth", "models/student_partly_teacher_cpu.pth",
                            "models/student_e2e.pth"]
     models = []
-    for model_load_string in tqdm(models_load_strings, desc = "Loading models..."):
+    for i, model_load_string in enumerate(tqdm(models_load_strings, desc = "Loading models...")):
         model = ConvTasNet(
             num_sources=num_sources,
             enc_kernel_size=enc_kernel_size, 
@@ -46,20 +48,20 @@ def load_models():
             msk_num_layers=msk_num_layers,
             msk_num_stacks=msk_num_stacks,
             msk_activate=msk_activate,
-            causal = True,
-            save_intermediate_values = True
+            causal = causal[i] if causal is not None else True,
+            save_intermediate_values = save_intermediate_values[i] if save_intermediate_values is not None else True
         )
-        try: 
-            model.load_state_dict(torch.load(model_load_string, weights_only = True, map_location=torch.device('cpu')))
-        except RuntimeError:
-            checkpoint = torch.load(model_load_string, weights_only=True, map_location=torch.device('cpu'))
-            new_checkpoint_state_dict = {}
-            for key, value in checkpoint.items():
-                new_key = key.replace('conv_layers.5.bias', 'conv_layers.6.bias').replace('conv_layers.5.weight', 'conv_layers.6.weight')
-                new_key = new_key.replace('_orig_mod.encoder.', "encoder.").replace('_orig_mod.decoder.', "decoder.").replace('_orig_mod.mask_generator.', "mask_generator.")
-                new_checkpoint_state_dict[new_key] = value
-            model.load_state_dict(new_checkpoint_state_dict)
-
+        if model_load_string != "":
+            try: 
+                model.load_state_dict(torch.load(model_load_string, weights_only = True, map_location=torch.device(device)))
+            except RuntimeError:
+                checkpoint = torch.load(model_load_string, weights_only=True, map_location=torch.device(device))
+                new_checkpoint_state_dict = {}
+                for key, value in checkpoint.items():
+                    new_key = key.replace('conv_layers.5.bias', 'conv_layers.6.bias').replace('conv_layers.5.weight', 'conv_layers.6.weight')
+                    new_key = new_key.replace('_orig_mod.encoder.', "encoder.").replace('_orig_mod.decoder.', "decoder.").replace('_orig_mod.mask_generator.', "mask_generator.")
+                    new_checkpoint_state_dict[new_key] = value
+                model.load_state_dict(new_checkpoint_state_dict)
         model.eval()
         models.append((model, model_load_string))
     return models
@@ -82,8 +84,8 @@ def get_model_predictions_and_data(
     assert not (mock is True and datapoints > 1), f"If you want to mock, you should only want 1 datapoint, but you want {datapoints}"
     if models is None:
         models = load_models()
-    dataset_VAL = get_train_dataset(mock = mock)
-    assert len(dataset_VAL) >= datapoints
+    dataset_VAL = get_val_dataset(mock = mock)
+    assert len(dataset_VAL) >= datapoints, f"Dataset has {len(dataset_VAL)} datapoints, but you want {datapoints}"
     indexes = random.sample(range(len(dataset_VAL)), datapoints) if not deterministic else range(datapoints)
     result = []
     for i in tqdm(range(datapoints), desc = f"Getting model predictions for all datapoints"):
