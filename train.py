@@ -75,7 +75,7 @@ def train_step_student(inputs: torch.Tensor, labels: torch.Tensor, student: Conv
     optimizer.step()
     return loss
 
-# @torch.compile
+@torch.compile
 def train_step_student_without_teacher(inputs: torch.Tensor, labels: torch.Tensor, student: ConvTasNet, optimizer: torch.optim.Optimizer, loss_func: Union[signal_noise_ratio, scale_invariant_signal_noise_ratio]):
     assert inputs.device == labels.device == next(student.parameters()).device
     student.train()
