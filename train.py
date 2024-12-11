@@ -12,9 +12,12 @@ import time
 import os
 from typing import Tuple, Union
 from torchmetrics.audio import ScaleInvariantSignalDistortionRatio, SignalDistortionRatio
+from torchmetrics.functional import signal_noise_ratio, scale_invariant_signal_noise_ratio
+import time
 
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print("Using device:", DEVICE)
 SAVE_MEMORY = False
 
 ## CURRENTLY DOES NOT WORK
@@ -31,7 +34,7 @@ def get_dataloaders(config: Config) -> Tuple[ConvTasNetDataLoader, ConvTasNetDat
     return train_loader, val_loader
 
 @torch.compile
-def evaluate_model(model: ConvTasNet, val_loader: ConvTasNetDataLoader, loss_func: Union[SignalDistortionRatio, ScaleInvariantSignalDistortionRatio]):
+def evaluate_model(model: ConvTasNet, val_loader: ConvTasNetDataLoader, loss_func: Union[signal_noise_ratio, scale_invariant_signal_noise_ratio]):
     model.eval()
     losses = []
     with torch.no_grad():
@@ -48,7 +51,8 @@ def evaluate_model(model: ConvTasNet, val_loader: ConvTasNetDataLoader, loss_fun
     return sum(losses)/len(losses)
 
 @torch.compile
-def train_step_teacher(inputs: torch.Tensor, labels: torch.Tensor, teacher: ConvTasNet, optimizer: torch.optim.Optimizer, loss_func: Union[SignalDistortionRatio, ScaleInvariantSignalDistortionRatio]):
+def train_step_teacher(inputs: torch.Tensor, labels: torch.Tensor, teacher: ConvTasNet, optimizer: torch.optim.Optimizer, loss_func: Union[signal_noise_ratio, scale_invariant_signal_noise_ratio]):
+    assert inputs.device == labels.device == next(teacher.parameters()).device
     teacher.train()
     optimizer.zero_grad() 
     clean_sound_teacher_output = teacher(inputs)[:, 0:1, :]
@@ -58,7 +62,7 @@ def train_step_teacher(inputs: torch.Tensor, labels: torch.Tensor, teacher: Conv
     return loss 
 
 @torch.compile
-def train_step_student(inputs: torch.Tensor, labels: torch.Tensor, student: ConvTasNet, teacher: ConvTasNet, optimizer: torch.optim.Optimizer, loss_func: Union[SignalDistortionRatio, ScaleInvariantSignalDistortionRatio], teacher_predictions_factor: float):
+def train_step_student(inputs: torch.Tensor, labels: torch.Tensor, student: ConvTasNet, teacher: ConvTasNet, optimizer: torch.optim.Optimizer, loss_func: Union[signal_noise_ratio, scale_invariant_signal_noise_ratio], teacher_predictions_factor: float):
     teacher.eval()
     student.train()
     optimizer.zero_grad()
@@ -71,8 +75,9 @@ def train_step_student(inputs: torch.Tensor, labels: torch.Tensor, student: Conv
     optimizer.step()
     return loss
 
-@torch.compile
-def train_step_student_without_teacher(inputs: torch.Tensor, labels: torch.Tensor, student: ConvTasNet, optimizer: torch.optim.Optimizer, loss_func: Union[SignalDistortionRatio, ScaleInvariantSignalDistortionRatio]):
+# @torch.compile
+def train_step_student_without_teacher(inputs: torch.Tensor, labels: torch.Tensor, student: ConvTasNet, optimizer: torch.optim.Optimizer, loss_func: Union[signal_noise_ratio, scale_invariant_signal_noise_ratio]):
+    assert inputs.device == labels.device == next(student.parameters()).device
     student.train()
     optimizer.zero_grad()
     student_output = student(inputs)[:, 0:1, :]
@@ -85,7 +90,7 @@ def log_train_losses(logger: NeptuneLogger, train_losses: dict):
     for key, value in train_losses.items():
         logger.log_metric(f"train_loss/{key}", value)
 
-def log_eval_metrics(logger: NeptuneLogger, teacher: ConvTasNet, student: ConvTasNet, val_loader: ConvTasNetDataLoader, loss_func: Union[SignalDistortionRatio, ScaleInvariantSignalDistortionRatio]):
+def log_eval_metrics(logger: NeptuneLogger, teacher: ConvTasNet, student: ConvTasNet, val_loader: ConvTasNetDataLoader, loss_func: Union[signal_noise_ratio, scale_invariant_signal_noise_ratio]):
     eval_losses = {}
     eval_losses['teacher'] = evaluate_model(teacher, val_loader, loss_func)
     eval_losses['student'] = evaluate_model(student, val_loader, loss_func)
@@ -119,18 +124,23 @@ def train(config: Config):
     logger = NeptuneLogger(test = config.debug.test_run)
     teacher, _ = models[0]
     student, _ = models[1]
+    
+    teacher = teacher.to(DEVICE)
+    student = student.to(DEVICE)
+    
     train_loader, val_loader = get_dataloaders(config)
-    loss_func = ScaleInvariantSignalDistortionRatio()
+    loss_func = scale_invariant_signal_noise_ratio
 
     student_optimizer = torch.optim.Adam(student.parameters())
     teacher_optimizer = torch.optim.Adam(teacher.parameters())
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(teacher_optimizer, mode='min', factor = 0.5, patience = 3)
 
     for i in tqdm(range(config.training_params.epochs)):
-        for batch_inputs, batch_labels in train_loader:
+        start_time = time.time()
+        for inputs, labels in train_loader:
             if SAVE_MEMORY:
-                inputs = batch_inputs[:, :, :16000]
-                labels = batch_labels[:, :, :16000]
+                inputs = inputs[:, :, :16000]
+                labels = labels[:, :, :16000]
             inputs, labels = inputs.to(DEVICE), labels.to(DEVICE)
             train_losses = {}
             if config.training_init.train_teacher:
@@ -142,9 +152,9 @@ def train(config: Config):
             
             log_train_losses(logger, train_losses)
         eval_losses = log_eval_metrics(logger, teacher, student, val_loader, loss_func)
+        logger.log_metric("time", time.time() - start_time)
         log_example_wavs(logger, inputs, labels, teacher, student, i)
         step_scheduler(logger, scheduler, eval_losses, teacher_optimizer, student_optimizer)
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

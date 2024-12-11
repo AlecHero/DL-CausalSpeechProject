@@ -35,7 +35,7 @@ class Config:
     training_params: TrainingParams
 
 def logic_check(config_dict: dict):
-    assert config_dict['training_init']['train_student'] != config_dict['training_init']['train_student_without_teacher'], "You cannot train both student and student without teacher at the same time"
+    assert not all([config_dict['training_init']['train_student'], config_dict['training_init']['train_student_without_teacher']]), "You cannot train both student and student without teacher at the same time"
 
 def load_config(config_path: str) -> Config:
     if not os.path.exists(config_path):
