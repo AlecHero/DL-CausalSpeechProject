@@ -137,7 +137,7 @@ def train(config: Config):
 
     for i in tqdm(range(config.training_params.epochs)):
         start_time = time.time()
-        for inputs, labels in train_loader:
+        for j, (inputs, labels) in enumerate(train_loader):
             if SAVE_MEMORY:
                 inputs = inputs[:, :, :16000]
                 labels = labels[:, :, :16000]
@@ -150,7 +150,8 @@ def train(config: Config):
             if config.training_init.train_student_without_teacher:
                 train_losses['student_without_teacher'] = train_step_student_without_teacher(inputs, labels, student, student_optimizer, loss_func)
             
-            log_train_losses(logger, train_losses)
+            if j % 1000 == 0:
+                log_train_losses(logger, train_losses)
         eval_losses = log_eval_metrics(logger, teacher, student, val_loader, loss_func)
         logger.log_metric("time", time.time() - start_time)
         log_example_wavs(logger, inputs, labels, teacher, student, i)
