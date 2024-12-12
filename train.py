@@ -113,6 +113,12 @@ def step_scheduler(logger: NeptuneLogger, scheduler: torch.optim.lr_scheduler.Re
         student_param_group['lr'] = current_lr
     logger.log_metric("learning_rate", current_lr)
 
+def save_models(logger: NeptuneLogger, teacher: ConvTasNet, student: ConvTasNet):
+    torch.save(teacher.state_dict(), f"tmp_teacher.pth")
+    torch.save(student.state_dict(), f"tmp_student.pth")
+    logger.log_model("tmp_teacher.pth", "artifacts/teacher_latest.pth")
+    logger.log_model("tmp_student.pth", "artifacts/student_latest.pth")
+
 def train(config: Config):
     save_int_vals = True if config.training_params.epoch_to_turn_off_intermediate > 0 else False
     models = load_models([config.training_init.teacher_path, config.training_init.student_path], DEVICE, causal = [False, True], save_intermediate_values = [save_int_vals, save_int_vals])
@@ -144,6 +150,7 @@ def train(config: Config):
         eval_losses = log_eval_metrics(logger, teacher, student, val_loader, loss_func)
         log_example_wavs(logger, inputs, labels, teacher, student, i)
         step_scheduler(logger, scheduler, eval_losses, teacher_optimizer, student_optimizer)
+        save_models(logger, teacher, student)
 
 
 if __name__ == "__main__":
