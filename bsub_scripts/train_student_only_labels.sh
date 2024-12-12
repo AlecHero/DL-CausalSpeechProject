@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # A100 GPU queue, there is also gpua40 and gpua10
-#BSUB -q gpua40
+#BSUB -q gpua100
 
 # job name
 #BSUB -J job_name_goes_here
@@ -22,4 +22,4 @@
 # your training script here, e.g.
 # activate environment ...
 source ../ears_benchmark/.venv/bin/activate
-python3 train.py --config configs/only_labels.yaml
+python3 train.py --config configs/train_student_only_labels.yaml

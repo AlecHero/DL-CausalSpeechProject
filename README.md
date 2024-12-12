@@ -29,4 +29,4 @@ We are going to compare the following approaches:
 - Training causal student and teacher end-to-end with loss on intermediate layer
 - Training with discriminators?
 
-
+You have to run all scripts from the DL-CausalSpeechProject folder. This also applies when adding scripts to bsub.
