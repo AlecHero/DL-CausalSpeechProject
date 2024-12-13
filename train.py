@@ -118,6 +118,19 @@ def step_scheduler(logger: NeptuneLogger, scheduler: torch.optim.lr_scheduler.Re
         student_param_group['lr'] = current_lr
     logger.log_metric("learning_rate", current_lr)
 
+def save_models(logger: NeptuneLogger, teacher: ConvTasNet, student: ConvTasNet, raw_models_copy: list):
+    if not os.path.exists("tmp"): os.mkdir("tmp")
+    teacher_copy, _ = raw_models_copy[0]
+    student_copy, _ = raw_models_copy[1]
+    teacher_copy.to('cpu')
+    student_copy.to('cpu')
+    teacher_copy.load_state_dict(teacher.state_dict())
+    student_copy.load_state_dict(student.state_dict())
+    torch.save(teacher_copy.state_dict(), f"tmp/teacher.pth")
+    torch.save(student_copy.state_dict(), f"tmp/student.pth")
+    logger.log_model(f"tmp/teacher.pth", f"artifacts/teacher.pth")
+    logger.log_model(f"tmp/student.pth", f"artifacts/student.pth")
+
 def train(config: Config):
     save_int_vals = True if config.training_params.epoch_to_turn_off_intermediate > 0 else False
     models = load_models([config.training_init.teacher_path, config.training_init.student_path], DEVICE, causal = [False, True], save_intermediate_values = [save_int_vals, save_int_vals])
@@ -134,6 +147,9 @@ def train(config: Config):
     student_optimizer = torch.optim.Adam(student.parameters())
     teacher_optimizer = torch.optim.Adam(teacher.parameters())
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(teacher_optimizer, mode='min', factor = 0.5, patience = 3)
+
+    raw_models_copy = load_models([config.training_init.teacher_path, config.training_init.student_path], DEVICE, causal = [False, True], save_intermediate_values = [save_int_vals, save_int_vals])
+    save_models(logger, teacher, student, raw_models_copy)
 
     for i in tqdm(range(config.training_params.epochs)):
         start_time = time.time()
@@ -155,7 +171,7 @@ def train(config: Config):
         logger.log_metric("time", time.time() - start_time)
         log_example_wavs(logger, inputs, labels, teacher, student, i)
         step_scheduler(logger, scheduler, eval_losses, teacher_optimizer, student_optimizer)
-
+        save_models(logger, teacher, student, raw_models_copy)
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, required=True, help="Path to config file")
