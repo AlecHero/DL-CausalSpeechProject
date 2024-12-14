@@ -52,7 +52,7 @@ def evaluate_model(model: ConvTasNet, val_loader: ConvTasNetDataLoader, loss_fun
 
 @torch.compile
 def train_step_teacher(inputs: torch.Tensor, labels: torch.Tensor, teacher: ConvTasNet, optimizer: torch.optim.Optimizer, loss_func: Union[signal_noise_ratio, scale_invariant_signal_noise_ratio]):
-    assert inputs.device == labels.device == next(teacher.parameters()).device
+    # assert inputs.device == labels.device == next(teacher.parameters()).device
     teacher.train()
     optimizer.zero_grad() 
     clean_sound_teacher_output = teacher(inputs)[:, 0:1, :]
@@ -77,14 +77,13 @@ def train_step_student(inputs: torch.Tensor, labels: torch.Tensor, student: Conv
 
 @torch.compile
 def train_step_student_without_teacher(inputs: torch.Tensor, labels: torch.Tensor, student: ConvTasNet, optimizer: torch.optim.Optimizer, loss_func: Union[signal_noise_ratio, scale_invariant_signal_noise_ratio]):
-    assert inputs.device == labels.device == next(student.parameters()).device
     student.train()
     optimizer.zero_grad()
     student_output = student(inputs)[:, 0:1, :]
-    loss = -loss_func(student_output, labels)
+    loss = -loss_func(student_output.contiguous(), labels.contiguous())
     loss.backward()
     optimizer.step()
-    return loss
+    return loss.detach()
 
 def log_train_losses(logger: NeptuneLogger, train_losses: dict):
     for key, value in train_losses.items():
@@ -118,11 +117,18 @@ def step_scheduler(logger: NeptuneLogger, scheduler: torch.optim.lr_scheduler.Re
         student_param_group['lr'] = current_lr
     logger.log_metric("learning_rate", current_lr)
 
-def save_models(logger: NeptuneLogger, teacher: ConvTasNet, student: ConvTasNet):
-    torch.save(teacher.state_dict(), f"tmp_teacher.pth")
-    torch.save(student.state_dict(), f"tmp_student.pth")
-    logger.log_model("tmp_teacher.pth", "artifacts/teacher_latest.pth")
-    logger.log_model("tmp_student.pth", "artifacts/student_latest.pth")
+def save_models(logger: NeptuneLogger, teacher: ConvTasNet, student: ConvTasNet, raw_models_copy: list):
+    if not os.path.exists("tmp"): os.mkdir("tmp")
+    teacher_copy, _ = raw_models_copy[0]
+    student_copy, _ = raw_models_copy[1]
+    teacher_copy.to('cpu')
+    student_copy.to('cpu')
+    teacher_copy.load_state_dict(teacher.state_dict())
+    student_copy.load_state_dict(student.state_dict())
+    torch.save(teacher_copy.state_dict(), f"tmp/teacher.pth")
+    torch.save(student_copy.state_dict(), f"tmp/student.pth")
+    logger.log_model(f"tmp/teacher.pth", f"artifacts/teacher.pth")
+    logger.log_model(f"tmp/student.pth", f"artifacts/student.pth")
 
 def train(config: Config):
     save_int_vals = True if config.training_params.epoch_to_turn_off_intermediate > 0 else False
@@ -141,9 +147,12 @@ def train(config: Config):
     teacher_optimizer = torch.optim.Adam(teacher.parameters())
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(teacher_optimizer, mode='min', factor = 0.5, patience = 3)
 
+    raw_models_copy = load_models([config.training_init.teacher_path, config.training_init.student_path], DEVICE, causal = [False, True], save_intermediate_values = [save_int_vals, save_int_vals])
+    save_models(logger, teacher, student, raw_models_copy)
+
     for i in tqdm(range(config.training_params.epochs)):
         start_time = time.time()
-        for j, (inputs, labels) in enumerate(train_loader):
+        for inputs, labels in train_loader:
             if SAVE_MEMORY:
                 inputs = inputs[:, :, :16000]
                 labels = labels[:, :, :16000]
@@ -156,14 +165,12 @@ def train(config: Config):
             if config.training_init.train_student_without_teacher:
                 train_losses['student_without_teacher'] = train_step_student_without_teacher(inputs, labels, student, student_optimizer, loss_func)
             
-            if j % 1000 == 0:
-                log_train_losses(logger, train_losses)
+            log_train_losses(logger, train_losses)
         eval_losses = log_eval_metrics(logger, teacher, student, val_loader, loss_func)
         logger.log_metric("time", time.time() - start_time)
         log_example_wavs(logger, inputs, labels, teacher, student, i)
         step_scheduler(logger, scheduler, eval_losses, teacher_optimizer, student_optimizer)
-        save_models(logger, teacher, student)
-
+        save_models(logger, teacher, student, raw_models_copy)
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, required=True, help="Path to config file")
