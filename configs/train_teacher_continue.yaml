@@ -8,7 +8,7 @@ debug:
   overfit_run: false
 
 training_init:
-  teacher_path: "models/teacher.pth" # Leave empty to init from scratch
+  teacher_path: "models/teacher_full_training.pth" # Leave empty to init from scratch
   student_path: "" # Leave empty to init from scratch
   train_teacher: true
   train_student: false
