@@ -1,0 +1,36 @@
+
+
+run_name: "Train causal student from only labels"
+
+debug:
+  test_run: false
+  save_memory: false # Save memory if you have low memory available
+  overfit_run: false
+
+training_init:
+  teacher_path: "models/teacher_full_training.pth" # Leave empty to init from scratch
+  student_path: "" # Leave empty to init from scratch
+  train_teacher: false
+  train_student: true
+  train_student_without_teacher: false
+
+training_params:
+  lr: 0.001
+  dropout: 0.0
+  weight_decay: 0.0
+  epochs: 200
+  epoch_to_turn_off_intermediate: 0
+  batch_size: 1
+  teacher_predictions_factor: 0.5 # 1 = Only teacher, 0 = Only labels
+
+# model_params:
+#   num_sources: 2
+#   enc_kernel_size: 16
+#   enc_num_feats: 512
+#   msk_kernel_size: 3
+#   msk_num_feats: 128
+#   msk_num_hidden_feats: 512
+#   msk_num_layers: 8
+#   msk_num_stacks: 3
+#   msk_activate: 'sigmoid'
+

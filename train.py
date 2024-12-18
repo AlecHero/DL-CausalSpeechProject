@@ -52,7 +52,7 @@ def evaluate_model(model: ConvTasNet, val_loader: ConvTasNetDataLoader, loss_fun
 
 @torch.compile
 def train_step_teacher(inputs: torch.Tensor, labels: torch.Tensor, teacher: ConvTasNet, optimizer: torch.optim.Optimizer, loss_func: Union[signal_noise_ratio, scale_invariant_signal_noise_ratio]):
-    assert inputs.device == labels.device == next(teacher.parameters()).device
+    # assert inputs.device == labels.device == next(teacher.parameters()).device
     teacher.train()
     optimizer.zero_grad() 
     clean_sound_teacher_output = teacher(inputs)[:, 0:1, :]
@@ -75,16 +75,15 @@ def train_step_student(inputs: torch.Tensor, labels: torch.Tensor, student: Conv
     optimizer.step()
     return loss
 
-# @torch.compile
+@torch.compile
 def train_step_student_without_teacher(inputs: torch.Tensor, labels: torch.Tensor, student: ConvTasNet, optimizer: torch.optim.Optimizer, loss_func: Union[signal_noise_ratio, scale_invariant_signal_noise_ratio]):
-    assert inputs.device == labels.device == next(student.parameters()).device
     student.train()
     optimizer.zero_grad()
     student_output = student(inputs)[:, 0:1, :]
-    loss = -loss_func(student_output, labels)
+    loss = -loss_func(student_output.contiguous(), labels.contiguous())
     loss.backward()
     optimizer.step()
-    return loss
+    return loss.detach()
 
 def log_train_losses(logger: NeptuneLogger, train_losses: dict):
     for key, value in train_losses.items():
