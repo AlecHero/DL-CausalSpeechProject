@@ -37,6 +37,13 @@ def load_models(models_load_strings: Union[List[str], None] = None, device: str 
         # models_load_strings = ["models/student_only_labels_cpu.pth", "models/student_only_teacher_cpu.pth", "models/student_partly_teacher_cpu.pth",
         #                    "models/student_e2e.pth"]
         models_load_strings = ["models/teacher_new_script.pth", "models/student_new_script.pth"]
+        models_load_strings = [
+            "models/student_only_labels_dropout.pth", 
+            "models/student_only_labels.pth", 
+            "models/student_only_teacher.pth",
+            "models/student_partly_teacher.pth",
+            "models/student_only_teacher_e2e.pth"
+        ]
     models = []
     for i, model_load_string in enumerate(tqdm(models_load_strings, desc = "Loading models...")):
         model = ConvTasNet(
@@ -89,7 +96,7 @@ def get_model_predictions_and_data(
     assert len(dataset_VAL) >= datapoints, f"Dataset has {len(dataset_VAL)} datapoints, but you want {datapoints}"
     indexes = random.sample(range(len(dataset_VAL)), datapoints) if not deterministic else range(datapoints)
     result = []
-    for i in tqdm(range(datapoints), desc = f"Getting model predictions for all datapoints"):
+    for i in tqdm(range(datapoints), desc = f"Getting model predictions for {datapoints} datapoints"):
         inputs, outputs = dataset_VAL[indexes[i]]
         # min_len = min(len(inputs), len(outputs))
         # inputs, outputs = inputs[..., :min_len], outputs[..., :min_len]

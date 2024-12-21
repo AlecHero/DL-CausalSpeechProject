@@ -127,13 +127,23 @@ def save_models(logger: NeptuneLogger, teacher: ConvTasNet, student: ConvTasNet,
     student_copy.load_state_dict(student.state_dict())
     torch.save(teacher_copy.state_dict(), f"tmp/teacher.pth")
     torch.save(student_copy.state_dict(), f"tmp/student.pth")
-    logger.log_model(f"tmp/teacher.pth", f"artifacts/teacher.pth")
+    logger.log_model(f"tmp/teacher.pth", f"artifacts/teacher.pth") # Notice that this is not normalize, so might sound bad while being okay when normalized.
     logger.log_model(f"tmp/student.pth", f"artifacts/student.pth")
 
 def train(config: Config):
     save_int_vals = True if config.training_params.epoch_to_turn_off_intermediate > 0 else False
     models = load_models([config.training_init.teacher_path, config.training_init.student_path], DEVICE, causal = [False, True], save_intermediate_values = [save_int_vals, save_int_vals])
     logger = NeptuneLogger(test = config.debug.test_run)
+
+    logger.log_metadata({
+        "lr": config.training_params.lr,
+        "optimizer": "adam",
+        "scheduler": "Reduce on Plateau",
+        "epoch": config.training_params.epochs,
+        "batch_size": config.training_params.batch_size,
+        "desc": config.run_name
+    })
+
     teacher, _ = models[0]
     student, _ = models[1]
     
