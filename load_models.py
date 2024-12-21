@@ -34,8 +34,9 @@ def get_val_dataset(mock: bool = False):
 
 def load_models(models_load_strings: Union[List[str], None] = None, device: str = 'cpu', causal: Union[List[bool], None] = None, save_intermediate_values: Union[List[bool], None] = None) -> List[tuple[ConvTasNet, str]]:
     if models_load_strings is None:
-        models_load_strings = ["models/student_only_labels_cpu.pth", "models/student_only_teacher_cpu.pth", "models/student_partly_teacher_cpu.pth",
-                           "models/student_e2e.pth"]
+        # models_load_strings = ["models/student_only_labels_cpu.pth", "models/student_only_teacher_cpu.pth", "models/student_partly_teacher_cpu.pth",
+        #                    "models/student_e2e.pth"]
+        models_load_strings = ["models/teacher_new_script.pth", "models/student_new_script.pth"]
     models = []
     for i, model_load_string in enumerate(tqdm(models_load_strings, desc = "Loading models...")):
         model = ConvTasNet(
