@@ -1,0 +1,92 @@
+/zhome/e9/c/186947/.lsbatch/1734357883.23447000.shell: line 3: run_name:: command not found
+/zhome/e9/c/186947/.lsbatch/1734357883.23447000.shell: line 5: debug:: command not found
+/zhome/e9/c/186947/.lsbatch/1734357883.23447000.shell: line 6: test_run:: command not found
+/zhome/e9/c/186947/.lsbatch/1734357883.23447000.shell: line 7: save_memory:: command not found
+/zhome/e9/c/186947/.lsbatch/1734357883.23447000.shell: line 8: overfit_run:: command not found
+/zhome/e9/c/186947/.lsbatch/1734357883.23447000.shell: line 10: training_init:: command not found
+/zhome/e9/c/186947/.lsbatch/1734357883.23447000.shell: line 11: teacher_path:: command not found
+/zhome/e9/c/186947/.lsbatch/1734357883.23447000.shell: line 12: student_path:: command not found
+/zhome/e9/c/186947/.lsbatch/1734357883.23447000.shell: line 13: train_teacher:: command not found
+/zhome/e9/c/186947/.lsbatch/1734357883.23447000.shell: line 14: train_student:: command not found
+/zhome/e9/c/186947/.lsbatch/1734357883.23447000.shell: line 15: train_student_without_teacher:: command not found
+/zhome/e9/c/186947/.lsbatch/1734357883.23447000.shell: line 17: training_params:: command not found
+/zhome/e9/c/186947/.lsbatch/1734357883.23447000.shell: line 18: lr:: command not found
+/zhome/e9/c/186947/.lsbatch/1734357883.23447000.shell: line 19: dropout:: command not found
+/zhome/e9/c/186947/.lsbatch/1734357883.23447000.shell: line 20: weight_decay:: command not found
+/zhome/e9/c/186947/.lsbatch/1734357883.23447000.shell: line 21: epochs:: command not found
+/zhome/e9/c/186947/.lsbatch/1734357883.23447000.shell: line 22: epoch_to_turn_off_intermediate:: command not found
+/zhome/e9/c/186947/.lsbatch/1734357883.23447000.shell: line 23: batch_size:: command not found
+/zhome/e9/c/186947/.lsbatch/1734357883.23447000.shell: line 24: teacher_predictions_factor:: command not found
+
+------------------------------------------------------------
+Sender: LSF System <lsfadmin@hpc.dtu.dk>
+Subject: Job 23447000: <NONAME> in cluster <dcc> Exited
+
+Job <NONAME> was submitted from host <hpclogin1> by user <s224194> in cluster <dcc> at Mon Dec 16 15:04:43 2024
+Job was executed on host(s) <n-62-31-5>, in queue <hpc>, as user <s224194> in cluster <dcc> at Mon Dec 16 15:04:44 2024
+</zhome/e9/c/186947> was used as the home directory.
+</zhome/e9/c/186947/DL-CausalSpeechProject> was used as the working directory.
+Started at Mon Dec 16 15:04:44 2024
+Terminated at Mon Dec 16 15:04:45 2024
+Results reported at Mon Dec 16 15:04:45 2024
+
+Your job looked like:
+
+------------------------------------------------------------
+# LSBATCH: User input
+
+
+run_name: "train_teacher"
+
+debug:
+  test_run: false
+  save_memory: false # Save memory if you have low memory available
+  overfit_run: false
+
+training_init:
+  teacher_path: "models/teacher_full_training.pth" # Leave empty to init from scratch
+  student_path: "" # Leave empty to init from scratch
+  train_teacher: true
+  train_student: false
+  train_student_without_teacher: false
+
+training_params:
+  lr: 0.001
+  dropout: 0.0 # Does not work
+  weight_decay: 0.0 # Does not work
+  epochs: 200
+  epoch_to_turn_off_intermediate: 0 # Does not work
+  batch_size: 1
+  teacher_predictions_factor: 0.5 # 1 = Only teacher, 0 = Only labels
+
+# model_params:
+#   num_sources: 2
+#   enc_kernel_size: 16
+#   enc_num_feats: 512
+#   msk_kernel_size: 3
+#   msk_num_feats: 128
+#   msk_num_hidden_feats: 512
+#   msk_num_layers: 8
+#   msk_num_stacks: 3
+#   msk_activate: 'sigmoid'
+
+
+------------------------------------------------------------
+
+Exited with exit code 127.
+
+Resource usage summary:
+
+    CPU time :                                   0.50 sec.
+    Max Memory :                                 -
+    Average Memory :                             -
+    Total Requested Memory :                     1024.00 MB
+    Delta Memory :                               -
+    Max Swap :                                   -
+    Max Processes :                              -
+    Max Threads :                                -
+    Run time :                                   28 sec.
+    Turnaround time :                            2 sec.
+
+The output (if any) is above this job summary.
+
