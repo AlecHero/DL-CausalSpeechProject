@@ -35,14 +35,14 @@ def visualize_results(results, sr=16000):
         plt.tight_layout()
 
         # Save plot(s) in Plots folder
-        plot_path = os.path.join('Plots', f"results_from_prediction{idx + 1}.png")
+        plot_path = os.path.join('Plots', f"full_results_from_prediction{idx + 1}.png")
         plt.savefig(plot_path)
 
         plt.show()
 
 if __name__ == "__main__":
 
-    results = get_model_predictions_and_data(mock=False, save_memory=True, datapoints=10, deterministic=True)
+    results = get_model_predictions_and_data(mock=False, save_memory=False, datapoints=10, deterministic=True)
 
     visualize_results(results, sr=16000)
 
