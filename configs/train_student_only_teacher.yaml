@@ -1,6 +1,6 @@
 
 
-run_name: "train_teacher"
+run_name: "Train causal student from only labels"
 
 debug:
   test_run: false
@@ -8,20 +8,20 @@ debug:
   overfit_run: false
 
 training_init:
-  teacher_path: "models/teacher_full_training.pth" # Leave empty to init from scratch
+  teacher_path: "" # Leave empty to init from scratch
   student_path: "" # Leave empty to init from scratch
   train_teacher: true
-  train_student: false
+  train_student: true
   train_student_without_teacher: false
 
 training_params:
   lr: 0.001
-  dropout: 0.0 # Does not work
-  weight_decay: 0.0 # Does not work
+  dropout: 0.0
+  weight_decay: 0.0
   epochs: 200
-  epoch_to_turn_off_intermediate: 0 # Does not work
+  epoch_to_turn_off_intermediate: 0
   batch_size: 1
-  teacher_predictions_factor: 0.5 # 1 = Only teacher, 0 = Only labels
+  teacher_predictions_factor: 1 # 1 = Only teacher, 0 = Only labels
 
 # model_params:
 #   num_sources: 2
