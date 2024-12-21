@@ -13,7 +13,7 @@ def plot_spectrogram(audio, sr, title, ax):
     ax.set_title(title)
 
 def visualize_results(results, sr=16000):
-    models = ['Teacher', 'Student']
+    models = ['Student_only_labels_dropout', 'Student_only_labels', 'Student_only_teacher', 'Student_partly_teacher', 'Student_only_teacher_e2e']
     for idx, (predictions, inputs, outputs) in enumerate(results):
         inputs_np = inputs.squeeze().numpy()
         outputs_np = outputs.squeeze().numpy()
@@ -35,14 +35,14 @@ def visualize_results(results, sr=16000):
         plt.tight_layout()
 
         # Save plot(s) in Plots folder
-        plot_path = os.path.join('Plots', f"results_fro_prediction{idx + 1}.png")
+        plot_path = os.path.join('Plots', f"results_from_prediction{idx + 1}.png")
         plt.savefig(plot_path)
 
         plt.show()
 
 if __name__ == "__main__":
 
-    results = get_model_predictions_and_data(mock=False, save_memory=True, datapoints=1, deterministic=True)
+    results = get_model_predictions_and_data(mock=False, save_memory=True, datapoints=10, deterministic=True)
 
     visualize_results(results, sr=16000)
 
