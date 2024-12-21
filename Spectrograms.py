@@ -13,7 +13,7 @@ def plot_spectrogram(audio, sr, title, ax):
     ax.set_title(title)
 
 def visualize_results(results, sr=16000):
-    models = ['Student_only_labels', 'Student_only_teacher', 'Student_partly_teacher', 'student_e2e']
+    models = ['Teacher', 'Student']
     for idx, (predictions, inputs, outputs) in enumerate(results):
         inputs_np = inputs.squeeze().numpy()
         outputs_np = outputs.squeeze().numpy()
