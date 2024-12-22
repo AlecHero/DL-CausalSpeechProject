@@ -1,32 +1,23 @@
 # Self-supervised non-causal to causal speech enhancement
 
-Todo:
-- [x] Causal 1dConv and 1dTransposeConv layer (hent kode fra torchaudio) (bertram, alex)
-- [x] Find ud af hvordan man kører med bsub (Lucas)
-- [x] Compile torch forward + backward (logger skal ud) (Lucas)
-- [x] Træne teacher (Lucas)
-- [x] Prep script for student train
-- [ ] Cleanup folder
+## Demo:
+See our demo notebook [here](demo.ipynb)
 
-- [ ] How to best transfer learn from teacher to student
-    - [ ] Make a loss for intermediate layer output values (bertram, alex)
-- [ ] Figure out accuracy measure. They use PESQ, MCD and PSS in the paper, what should we use? What are the Flops used?
+## Reproduce:
 
-Notes:
-- It seems to be better to fully train teacher, then train student: Much more stabel flow for the student to follow. On this note, also address the best alpha, or if there should even be an alpha when the teacher is fully trained when starting student training.
+To reproduce our results:
+1. Pull this repo
+2. If you wish to try the overfitting run, you can do so without setting up the EARS-WHAM dataset and using our sample data.
+3. Go the the `config` folder and change the "neptune_api" to your api. You can also leave it blank and let `test_run` be true, which will run the training without logging to neptune.
 
+**Overfitting run:**
+```bash
+python train.py --config config/overfitting.yaml
+```
 
-Next:
-- [ ] Try end-to-end?
-- [ ] Try with discriminator model included?
+**Full training run:**
+This requires that you have set up the full EARS-WHAM dataset by following this [guide](https://github.com/sp-uhh/ears_benchmark)
 
-**Expected results:**
-We are going to compare the following approaches:
-- Training causal student directly
-- Training causal student from teacher with normal loss
-- Training causal student from teacher with loss on intermediate layer
-- Training causal student and teacher end-to-end with normal loss
-- Training causal student and teacher end-to-end with loss on intermediate layer
-- Training with discriminators?
-
-You have to run all scripts from the DL-CausalSpeechProject folder. This also applies when adding scripts to bsub.
+```bash
+python train.py --config config/student_from_teacher.yaml
+```
