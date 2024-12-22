@@ -16,7 +16,7 @@ python train.py --config config/overfitting.yaml
 ```
 
 **Full training run:**
-This requires that you have set up the full EARS-WHAM dataset by following this [guide](https://github.com/sp-uhh/ears_benchmark)
+This requires that you have set up the full EARS-WHAM dataset by following this [guide](https://github.com/sp-uhh/ears_benchmark). We decided to resample the data to 16kHz, as this is the sampling rate of the data we used for training. You can do this and see our code for resampling in our Dataloader folder.
 
 ```bash
 python train.py --config config/student_from_teacher.yaml

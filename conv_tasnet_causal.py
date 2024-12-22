@@ -37,7 +37,6 @@ class ConvBlock(torch.nn.Module):
         padding (int): Padding value of the convolution in the middle layer.
         dilation (int, optional): Dilation value of the convolution in the middle layer.
         no_redisual (bool, optional): Disable residual block/output.
-        dropout (float, optional): Dropout probability.
 
     Note:
         This implementation corresponds to the "non-causal" setting in the paper.
@@ -48,19 +47,21 @@ class ConvBlock(torch.nn.Module):
         io_channels: int,
         hidden_channels: int,
         kernel_size: int,
+        # padding: int,
         dilation: int = 1,
         no_residual: bool = False,
         causal: bool = True,
-        dropout: float = 0.0,
     ):
         super().__init__()
+        # CHANGED
         padding = (kernel_size - 1) * dilation if causal else (kernel_size - 1) // 2  # causal and non causal padding
     
         self.conv_layers = torch.nn.Sequential(
+            # WAS CHANGED CumulativeLayerNorm:
             torch.nn.Conv1d(in_channels=io_channels, out_channels=hidden_channels, kernel_size=1),
             torch.nn.PReLU(),
             torch.nn.GroupNorm(num_groups=1, num_channels=hidden_channels, eps=1e-08),
-            torch.nn.Dropout(p=dropout),
+            # (CumulativeLayerNorm(normalized_shape=hidden_channels) if causal else torch.nn.GroupNorm(num_groups=1, num_channels=hidden_channels)),
             torch.nn.Conv1d(
                 in_channels=hidden_channels,
                 out_channels=hidden_channels,
@@ -72,7 +73,9 @@ class ConvBlock(torch.nn.Module):
             torch.nn.PReLU(),
             (causal_index(padding=padding) if causal else torch.nn.Identity()), # Do nothing here if not causal
             torch.nn.GroupNorm(num_groups=1, num_channels=hidden_channels, eps=1e-08),
-            torch.nn.Dropout(p=dropout),
+            # (CumulativeLayerNorm(normalized_shape=hidden_channels) if causal else torch.nn.GroupNorm(num_groups=1, num_channels=hidden_channels)),
+            
+            
         )
 
         self.res_out = (
@@ -106,7 +109,6 @@ class MaskGenerator(torch.nn.Module):
         num_layers (int): The number of conv blocks in one stack, <X>.
         num_stacks (int): The number of conv block stacks, <R>.
         msk_activate (str): The activation function of the mask output.
-        dropout (float): Dropout probability.
 
     Note:
         This implementation corresponds to the "non-causal" setting in the paper.
@@ -123,8 +125,7 @@ class MaskGenerator(torch.nn.Module):
         num_stacks: int,
         msk_activate: str,
         causal: bool = True,
-        save_intermediate_values: bool = False,
-        dropout: float = 0.0
+        save_intermediate_values: bool = False
     ):
         super().__init__()
 
@@ -146,9 +147,10 @@ class MaskGenerator(torch.nn.Module):
                         hidden_channels=num_hidden,
                         kernel_size=kernel_size,
                         dilation=multi,
+                        # CHANGED:
+                        # padding=multi,
+                        # The last ConvBlock does not need residual
                         no_residual=(l == (num_layers - 1) and s == (num_stacks - 1)),
-                        causal=causal,
-                        dropout=dropout
                     )
                 )
                 self.receptive_field += kernel_size if s == 0 and l == 0 else (kernel_size - 1) * multi
@@ -165,11 +167,35 @@ class MaskGenerator(torch.nn.Module):
         else:
             raise ValueError(f"Unsupported activation {msk_activate}")
 
+    # def forward(self, input: torch.Tensor) -> torch.Tensor:
+    #     """Generate separation mask.
+
+    #     Args:
+    #         input (torch.Tensor): 3D Tensor with shape [batch, features, frames]
+
+    #     Returns:
+    #         Tensor: shape [batch, num_sources, features, frames]
+    #     """
+    #     batch_size = input.shape[0]
+    #     feats = self.input_norm(input)
+    #     feats = self.input_conv(feats)
+    #     output = 0.0
+    #     for layer in self.conv_layers:
+    #         residual, skip = layer(feats)
+    #         if residual is not None:  # the last conv layer does not produce residual
+    #             feats = feats + residual
+    #         output = output + skip
+    #     output = self.output_prelu(output)
+    #     output = self.output_conv(output)
+    #     output = self.mask_activate(output)
+    #     return output.view(batch_size, self.num_sources, self.input_dim, -1)
+
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         batch_size = input.shape[0]
         feats = self.input_norm(input)
         feats = self.input_conv(feats)
         output = 0.0
+        # CHANGED: INTERMEDIATES SAVED:
         intermediate_values = []  # Collect intermediate values if enabled
         for layer in self.conv_layers:
             residual, skip = layer(feats)
@@ -208,7 +234,6 @@ class ConvTasNet(torch.nn.Module):
         msk_num_layers (int, optional): The number of layers in one conv block of the mask generator, <X>.
         msk_num_stacks (int, optional): The numbr of conv blocks of the mask generator, <R>.
         msk_activate (str, optional): The activation function of the mask output (Default: ``sigmoid``).
-        dropout (float, optional): Dropout probability (Default: 0.0).
     """
 
     def __init__(
@@ -234,6 +259,7 @@ class ConvTasNet(torch.nn.Module):
         self.enc_num_feats = enc_num_feats
         self.enc_kernel_size = enc_kernel_size
         self.enc_stride = enc_kernel_size // 2
+        # CHANGED:
         self.save_intermediate_values = save_intermediate_values
 
         self.encoder = torch.nn.Conv1d(
@@ -244,6 +270,12 @@ class ConvTasNet(torch.nn.Module):
             padding=self.enc_stride,
             bias=False,
         )
+        
+        if dropout > 0.0:
+            self.dropout = torch.nn.Dropout(p=dropout)
+        else:
+            self.dropout = None
+            
         self.mask_generator = MaskGenerator(
             input_dim=enc_num_feats,
             num_sources=num_sources,
@@ -253,9 +285,9 @@ class ConvTasNet(torch.nn.Module):
             num_layers=msk_num_layers,
             num_stacks=msk_num_stacks,
             msk_activate=msk_activate,
-            causal=causal,
-            save_intermediate_values=save_intermediate_values,
-            dropout=dropout
+            # CHANGED:
+            causal = causal,
+            save_intermediate_values = save_intermediate_values
         )
         self.decoder = torch.nn.ConvTranspose1d(
             in_channels=enc_num_feats,
@@ -309,6 +341,36 @@ class ConvTasNet(torch.nn.Module):
         )
         return torch.cat([input, pad], 2), num_paddings
 
+    # def forward(self, input: torch.Tensor) -> torch.Tensor:
+    #     """Perform source separation. Generate audio source waveforms.
+
+    #     Args:
+    #         input (torch.Tensor): 3D Tensor with shape [batch, channel==1, frames]
+
+    #     Returns:
+    #         Tensor: 3D Tensor with shape [batch, channel==num_sources, frames]
+    #     """
+    #     if input.ndim != 3 or input.shape[1] != 1:
+    #         raise ValueError(f"Expected 3D tensor (batch, channel==1, frames). Found: {input.shape}")
+
+    #     # B: batch size
+    #     # L: input frame length
+    #     # L': padded input frame length
+    #     # F: feature dimension
+    #     # M: feature frame length
+    #     # S: number of sources
+
+    #     padded, num_pads = self._align_num_frames_with_strides(input)  # B, 1, L'
+    #     batch_size, num_padded_frames = padded.shape[0], padded.shape[2]
+    #     feats = self.encoder(padded)  # B, F, M
+    #     masked = self.mask_generator(feats) * feats.unsqueeze(1)  # B, S, F, M
+    #     masked = masked.view(batch_size * self.num_sources, self.enc_num_feats, -1)  # B*S, F, M
+    #     decoded = self.decoder(masked)  # B*S, 1, L'
+    #     output = decoded.view(batch_size, self.num_sources, num_padded_frames)  # B, S, L'
+    #     if num_pads > 0:
+    #         output = output[..., :-num_pads]  # B, S, L
+    #     return output
+
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         if input.ndim != 3 or input.shape[1] != 1:
             raise ValueError(f"Expected 3D tensor (batch, channel==1, frames). Found: {input.shape}")
@@ -317,7 +379,11 @@ class ConvTasNet(torch.nn.Module):
         batch_size, num_padded_frames = padded.shape[0], padded.shape[2]
         feats = self.encoder(padded)
         
+        if self.dropout is not None:
+            feats = self.dropout(feats)
+            
         if self.save_intermediate_values:
+            # CHANGED:
             masked, intermediate_values = self.mask_generator(feats)
         else:
             masked = self.mask_generator(feats)
@@ -327,6 +393,7 @@ class ConvTasNet(torch.nn.Module):
         output = decoded.view(batch_size, self.num_sources, num_padded_frames)
         if num_pads > 0:
             output = output[..., :-num_pads]
+        # CHANGED:
         if self.save_intermediate_values:
             return output, intermediate_values
         else:
@@ -383,8 +450,7 @@ if __name__ == "__main__":
         msk_num_layers=msk_num_layers,
         msk_num_stacks=msk_num_stacks,
         msk_activate=msk_activate,
-        causal=True,
-        dropout=0.1  # Example dropout value
+        causal = True
     )
 
     # Print the model architecture

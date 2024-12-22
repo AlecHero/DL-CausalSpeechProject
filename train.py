@@ -127,7 +127,7 @@ def save_models(logger: NeptuneLogger, teacher: ConvTasNet, student: ConvTasNet,
 def train(config: Config):
     save_int_vals = True if config.training_params.epoch_to_turn_off_intermediate > 0 else False
     models = load_models([config.training_init.teacher_path, config.training_init.student_path], DEVICE, causal = [False, True], 
-                         save_intermediate_values = [save_int_vals, save_int_vals], dropout = [config.training_params.dropout, config.training_params.dropout])
+                         save_intermediate_values = [save_int_vals, save_int_vals])#, dropout = [config.training_params.dropout, config.training_params.dropout])
     logger = NeptuneLogger(project_name = config.neptune_project, api_token = config.neptune_api, test = config.debug.test_run)
 
     logger.log_metadata({
@@ -152,7 +152,7 @@ def train(config: Config):
     teacher_optimizer = torch.optim.Adam(teacher.parameters(), weight_decay=config.training_params.weight_decay)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(teacher_optimizer, mode='min', factor = 0.5, patience = 3)
 
-    raw_models_copy = load_models([config.training_init.teacher_path, config.training_init.student_path], DEVICE, causal = [False, True], save_intermediate_values = [save_int_vals, save_int_vals])
+    raw_models_copy = load_models([config.training_init.teacher_path, config.training_init.student_path], DEVICE, causal = [False, True], save_intermediate_values = [save_int_vals, save_int_vals])#, dropout = [config.training_params.dropout, config.training_params.dropout])
     save_models(logger, teacher, student, raw_models_copy)
 
     for i in tqdm(range(config.training_params.epochs)):
@@ -176,6 +176,7 @@ def train(config: Config):
         log_example_wavs(logger, inputs, labels, teacher, student, i)
         step_scheduler(logger, scheduler, eval_losses, teacher_optimizer, student_optimizer)
         save_models(logger, teacher, student, raw_models_copy)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, required=True, help="Path to config file")

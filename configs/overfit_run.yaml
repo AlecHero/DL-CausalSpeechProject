@@ -7,7 +7,7 @@ data_path: "/Users/lucasvilsen/Documents/Documents/DL-CausalSpeechProject/sample
 
 debug:
   test_run: true
-  save_memory: false # Save memory if you have low memory available (< 16GB)
+  save_memory: true # Save memory if you have low memory available (< 16GB)
   overfit_run: true
 
 training_init:
