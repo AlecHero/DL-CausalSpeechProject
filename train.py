@@ -11,25 +11,19 @@ import pickle
 import time
 import os
 from typing import Tuple, Union
-from torchmetrics.audio import ScaleInvariantSignalDistortionRatio, SignalDistortionRatio
 from torchmetrics.functional import signal_noise_ratio, scale_invariant_signal_noise_ratio
 import time
-
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Using device:", DEVICE)
 SAVE_MEMORY = False
 
-## CURRENTLY DOES NOT WORK
-SAVING_INTERMEDIATE_VALUES = False
 
-def get_dataloaders(config: Config) -> Tuple[ConvTasNetDataLoader, ConvTasNetDataLoader]:
+def get_dataloaders(config: Config, data_path: str) -> Tuple[ConvTasNetDataLoader, ConvTasNetDataLoader]:
     max_samples = 1 if config.debug.overfit_run else None
-    blackhole_path = os.getenv('BLACKHOLE')
-    if not blackhole_path: raise EnvironmentError("The environment variable $BLACKHOLE is not set.")
-    dataset_TRN = EarsDataset(data_dir=os.path.join(blackhole_path, "EARS-WHAM"), subset = 'train', normalize = False, max_samples = max_samples)
+    dataset_TRN = EarsDataset(data_dir=data_path, subset = 'train', normalize = False, max_samples = max_samples)
     train_loader = ConvTasNetDataLoader(dataset_TRN, batch_size=config.training_params.batch_size, shuffle=True)
-    dataset_VAL = EarsDataset(data_dir=os.path.join(blackhole_path, "EARS-WHAM"), subset = 'valid', normalize = False, max_samples = max_samples)
+    dataset_VAL = EarsDataset(data_dir=data_path, subset = 'valid', normalize = False, max_samples = max_samples)
     val_loader = ConvTasNetDataLoader(dataset_VAL, batch_size=config.training_params.batch_size, shuffle=True)
     return train_loader, val_loader
 
@@ -127,13 +121,14 @@ def save_models(logger: NeptuneLogger, teacher: ConvTasNet, student: ConvTasNet,
     student_copy.load_state_dict(student.state_dict())
     torch.save(teacher_copy.state_dict(), f"tmp/teacher.pth")
     torch.save(student_copy.state_dict(), f"tmp/student.pth")
-    logger.log_model(f"tmp/teacher.pth", f"artifacts/teacher.pth") # Notice that this is not normalize, so might sound bad while being okay when normalized.
+    logger.log_model(f"tmp/teacher.pth", f"artifacts/teacher.pth") # Notice that this is not normalized, so might sound bad while being okay when normalized.
     logger.log_model(f"tmp/student.pth", f"artifacts/student.pth")
 
 def train(config: Config):
     save_int_vals = True if config.training_params.epoch_to_turn_off_intermediate > 0 else False
-    models = load_models([config.training_init.teacher_path, config.training_init.student_path], DEVICE, causal = [False, True], save_intermediate_values = [save_int_vals, save_int_vals])
-    logger = NeptuneLogger(test = config.debug.test_run)
+    models = load_models([config.training_init.teacher_path, config.training_init.student_path], DEVICE, causal = [False, True], 
+                         save_intermediate_values = [save_int_vals, save_int_vals], dropout = [config.training_params.dropout, config.training_params.dropout])
+    logger = NeptuneLogger(project_name = config.neptune_project, api_token = config.neptune_api, test = config.debug.test_run)
 
     logger.log_metadata({
         "lr": config.training_params.lr,
@@ -150,11 +145,11 @@ def train(config: Config):
     teacher = teacher.to(DEVICE)
     student = student.to(DEVICE)
     
-    train_loader, val_loader = get_dataloaders(config)
+    train_loader, val_loader = get_dataloaders(config, config.data_path)
     loss_func = scale_invariant_signal_noise_ratio
 
-    student_optimizer = torch.optim.Adam(student.parameters())
-    teacher_optimizer = torch.optim.Adam(teacher.parameters())
+    student_optimizer = torch.optim.Adam(student.parameters(), weight_decay=config.training_params.weight_decay)
+    teacher_optimizer = torch.optim.Adam(teacher.parameters(), weight_decay=config.training_params.weight_decay)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(teacher_optimizer, mode='min', factor = 0.5, patience = 3)
 
     raw_models_copy = load_models([config.training_init.teacher_path, config.training_init.student_path], DEVICE, causal = [False, True], save_intermediate_values = [save_int_vals, save_int_vals])
@@ -188,5 +183,4 @@ if __name__ == "__main__":
     
     config = load_config(args.config)
     SAVE_MEMORY = config.debug.save_memory
-    SAVING_INTERMEDIATE_VALUES = config.training_params.epoch_to_turn_off_intermediate > 0
     train(config)

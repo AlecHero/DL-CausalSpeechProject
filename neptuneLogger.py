@@ -4,12 +4,12 @@ from collections import defaultdict
 # https://app.neptune.ai/o/apros7/org/CausalSpeech/runs/table?viewId=standard-view
 
 class NeptuneLogger():
-    def __init__(self, test=False):
+    def __init__(self, project_name, api_token, test=False):
         self.test = test
         self.run = neptune.init_run(
-            project="apros7/CausalSpeech",
+            project=project_name,
             mode="offline" if test else "async",
-            api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIwNDg5ZTA0Mi0yNGZlLTRjN2EtODI5Yy0xODI2ZDNiMDY0NGUifQ==",
+            api_token=api_token,
         )  # your credentials
 
     def log_metadata(self, metadata):

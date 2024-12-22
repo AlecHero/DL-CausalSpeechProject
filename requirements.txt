@@ -1,2 +1,8 @@
 neptune
 torch
+librosa
+matplotlib
+numpy
+torchmetrics
+tqdm
+pandas

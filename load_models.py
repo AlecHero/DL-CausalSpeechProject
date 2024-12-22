@@ -6,7 +6,7 @@ import torch
 from tqdm import tqdm
 import random
 from wav_generator import save_to_wav
-from typing import List
+from typing import List, Optional
 
 num_sources = 2
 enc_kernel_size = 16
@@ -18,12 +18,7 @@ msk_num_layers = 8
 msk_num_stacks = 3
 msk_activate = 'sigmoid'
 
-# export BLACKHOLE="/Users/lucasvilsen/Documents/Documents"
-
-blackhole_path = os.getenv('BLACKHOLE')
-data_path = os.path.join(blackhole_path, "EARS-WHAM")
-
-def get_val_dataset(mock: bool = False):
+def get_val_dataset(data_path: str, mock: bool = False):
     print("Loading dataset...")
     if mock:
         dataset_VAL = [[torch.rand(1, 149158), torch.rand(1, 149158)]]
@@ -32,7 +27,7 @@ def get_val_dataset(mock: bool = False):
     print("Dataset loaded")
     return dataset_VAL
 
-def load_models(models_load_strings: Union[List[str], None] = None, device: str = 'cpu', causal: Union[List[bool], None] = None, save_intermediate_values: Union[List[bool], None] = None) -> List[tuple[ConvTasNet, str]]:
+def load_models(models_load_strings: Union[List[str], None] = None, device: str = 'cpu', causal: Union[List[bool], None] = None, save_intermediate_values: Union[List[bool], None] = None, dropout: Union[List[float], None] = None) -> List[tuple[ConvTasNet, str]]:
     if models_load_strings is None:
         models_load_strings = [
             "models/student_only_labels_dropout.pth", 
@@ -54,7 +49,8 @@ def load_models(models_load_strings: Union[List[str], None] = None, device: str 
             msk_num_stacks=msk_num_stacks,
             msk_activate=msk_activate,
             causal = causal[i] if causal is not None else True,
-            save_intermediate_values = save_intermediate_values[i] if save_intermediate_values is not None else True
+            save_intermediate_values = save_intermediate_values[i] if save_intermediate_values is not None else True,
+            dropout = dropout[i] if dropout is not None else 0.0
         )
         if model_load_string != "":
             try: 
@@ -76,7 +72,8 @@ def get_model_predictions_and_data(
     mock: bool = False, 
     datapoints: int = 1, 
     save_memory: bool = False, 
-    deterministic: bool = False
+    deterministic: bool = False,
+    data_path: Optional[str] = None,
     ) -> List[tuple]:
     """
     This function loads the models and returns the predictions and the data
@@ -85,11 +82,14 @@ def get_model_predictions_and_data(
     The output size is then: (datapoints, 3), with element = length of models. 
     Each element, the inputs and the outputs will have the same shape: (1, 1, x), where x is the length of the audio clip.
     """
+    if data_path is None:
+        blackhole_path = os.getenv('BLACKHOLE')
+        data_path = os.path.join(blackhole_path, "EARS-WHAM")
     assert datapoints > 0
     assert not (mock is True and datapoints > 1), f"If you want to mock, you should only want 1 datapoint, but you want {datapoints}"
     if models is None:
         models = load_models()
-    dataset_VAL = get_val_dataset(mock = mock)
+    dataset_VAL = get_val_dataset(data_path = data_path, mock = mock)
     assert len(dataset_VAL) >= datapoints, f"Dataset has {len(dataset_VAL)} datapoints, but you want {datapoints}"
     indexes = random.sample(range(len(dataset_VAL)), datapoints) if not deterministic else range(datapoints)
     result = []

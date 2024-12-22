@@ -1,6 +1,9 @@
 
 
 run_name: "Train causal student from only labels"
+neptune_api: ""
+neptune_project: ""
+data_path: ""
 
 debug:
   test_run: false
@@ -22,15 +25,3 @@ training_params:
   epoch_to_turn_off_intermediate: 0
   batch_size: 1
   teacher_predictions_factor: 1 # 1 = Only teacher, 0 = Only labels
-
-# model_params:
-#   num_sources: 2
-#   enc_kernel_size: 16
-#   enc_num_feats: 512
-#   msk_kernel_size: 3
-#   msk_num_feats: 128
-#   msk_num_hidden_feats: 512
-#   msk_num_layers: 8
-#   msk_num_stacks: 3
-#   msk_activate: 'sigmoid'
-

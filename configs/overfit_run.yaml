@@ -1,17 +1,20 @@
 
 
 run_name: "Overfitting_run_e2e"
+neptune_api: ""
+neptune_project: ""
+data_path: "/Users/lucasvilsen/Documents/Documents/DL-CausalSpeechProject/sample_ears_wham"
 
 debug:
-  test_run: false
-  save_memory: false # Save memory if you have low memory available
+  test_run: true
+  save_memory: false # Save memory if you have low memory available (< 16GB)
   overfit_run: true
 
 training_init:
   teacher_path: "" # Leave empty to init from scratch
   student_path: "" # Leave empty to init from scratch
   train_teacher: true
-  train_student: true
+  train_student: false
   train_student_without_teacher: false
 
 training_params:
@@ -22,15 +25,3 @@ training_params:
   epoch_to_turn_off_intermediate: 0
   batch_size: 1
   teacher_predictions_factor: 0.5 # 1 = Only teacher, 0 = Only labels
-
-# model_params:
-#   num_sources: 2
-#   enc_kernel_size: 16
-#   enc_num_feats: 512
-#   msk_kernel_size: 3
-#   msk_num_feats: 128
-#   msk_num_hidden_feats: 512
-#   msk_num_layers: 8
-#   msk_num_stacks: 3
-#   msk_activate: 'sigmoid'
-

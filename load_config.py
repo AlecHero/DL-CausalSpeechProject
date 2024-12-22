@@ -30,6 +30,9 @@ class Debug:
 @dataclass
 class Config:
     run_name: str
+    neptune_api: str
+    neptune_project: str
+    data_path: str
     debug: Debug
     training_init: TrainingInit
     training_params: TrainingParams
@@ -51,6 +54,9 @@ def load_config(config_path: str) -> Config:
     
     return Config(
         run_name=config_dict['run_name'],
+        neptune_api=config_dict['neptune_api'],
+        neptune_project=config_dict['neptune_project'],
+        data_path=config_dict['data_path'],
         debug=debug,
         training_init=training_init,
         training_params=training_params
