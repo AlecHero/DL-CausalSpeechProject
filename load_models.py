@@ -34,9 +34,6 @@ def get_val_dataset(mock: bool = False):
 
 def load_models(models_load_strings: Union[List[str], None] = None, device: str = 'cpu', causal: Union[List[bool], None] = None, save_intermediate_values: Union[List[bool], None] = None) -> List[tuple[ConvTasNet, str]]:
     if models_load_strings is None:
-        # models_load_strings = ["models/student_only_labels_cpu.pth", "models/student_only_teacher_cpu.pth", "models/student_partly_teacher_cpu.pth",
-        #                    "models/student_e2e.pth"]
-        models_load_strings = ["models/teacher_new_script.pth", "models/student_new_script.pth"]
         models_load_strings = [
             "models/student_only_labels_dropout.pth", 
             "models/student_only_labels.pth", 
@@ -122,7 +119,7 @@ def get_model_predictions_and_data(
 
 if __name__ == "__main__":
     # Settings when running on bsub should then be mock = False, save_memory = False, deterministic = _____ , datapoints > 1
-    results = get_model_predictions_and_data(mock = False, save_memory = True, datapoints = 1, deterministic = True)
+    results = get_model_predictions_and_data(mock = False, save_memory = True, datapoints = 4, deterministic = True)
     
     ## TO USE:
     for (predictions, inputs, outputs) in results:

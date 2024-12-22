@@ -49,7 +49,14 @@ def compute_metrics(results, save_path=None):
 
 ### PLOTTING
 metric_names = ['SNR', 'SDR', 'SI-SDR']
-model_names = ["student_only_labels", "student_only_teacher", "student_partly_teacher", "e2e_student_from_teacher", "teacher"]
+model_names = [
+            "student_only_labels_dropout", 
+            "student_only_labels", 
+            "student_only_teacher",
+            "student_partly_teacher",
+            "student_only_teacher_e2e"
+]
+
 num_metrics = 3
 
 def plot_metrics(metrics_path, save_path=None):
@@ -164,7 +171,7 @@ def plot_conf(data_path, save_path):
 
 
 if __name__ == "__main__":
-    datapoints = 632
+    datapoints = 10
     results = get_model_predictions_and_data(
         mock = False,
         save_memory = True,
@@ -172,11 +179,24 @@ if __name__ == "__main__":
         deterministic = False
     )
     
-    save_path = r"/zhome/f8/2/187151/DL-CausalSpeechProject/Plots/SNR_SDR"
+    # save_path = r"/zhome/f8/2/187151/DL-CausalSpeechProject/Plots/SNR_SDR"
     # save_path = r"C:\Users\alexa\Documents\GitHub\DL-CausalSpeechProject\Plots\SNR_SDR"
-    save_path = save_path + f"/metrics{datapoints}_save_memory.pt"
-    compute_metrics(results, save_path=save_path)
+    # save_path = save_path + f"/metrics{datapoints}_save_memory.pt"
+    baseline_metrics, prediction_metrics = compute_metrics(results, save_path="stuff.pt")
     
-    # metrics_path = save_path + "\metrics632.pt"
-    # plot_metrics(metrics_path, save_path)
-    # plot_conf(metrics_path, save_path)
+    # Print metrics
+    print("\nMetrics Summary:")
+    print("-" * 50)
+    for model_idx in range(len(model_names)):
+        print(f"\nModel: {model_names[model_idx]}")
+        for metric_idx in range(num_metrics):
+            model_scores = [scores[model_idx][metric_idx] for scores in prediction_metrics]
+            baseline_scores = [scores[metric_idx] for scores in baseline_metrics]
+            improvements = np.array(model_scores) - np.array(baseline_scores)
+            
+            mean_improvement = np.mean(improvements)
+            std_improvement = np.std(improvements)
+            
+            print(f"{metric_names[metric_idx]}:")
+            print(f"  Mean improvement: {mean_improvement:.2f}")
+            print(f"  Std deviation: {std_improvement:.2f}")

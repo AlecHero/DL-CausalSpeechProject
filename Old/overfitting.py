@@ -12,7 +12,7 @@ from Dataloader.Dataloader import EarsDataset
 from asteroid_loss import PairwiseNegSDR
 import os
 from torchmetrics.audio import ScaleInvariantSignalDistortionRatio, SignalDistortionRatio
-from criterion import cal_loss
+from Old.criterion import cal_loss
 
 ## CONSTANTS
 num_sources = 2
