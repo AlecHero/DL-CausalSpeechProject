@@ -1,7 +1,7 @@
 # Self-supervised non-causal to causal speech enhancement
 
 ## Demo:
-See our demo notebook [here](demo.ipynb)
+See our demo notebook [here](demo.ipynb). To run this, you will need to download our sample dataset. Unpack the zip file and move it into this folder with all the other files: [sample_ears_wham.zip](https://drive.google.com/file/d/1hccZ8z2YA0aIw-W_x2Tj_lcP9grHAlK-/view?usp=sharing).
 
 ## Reproduce:
 
